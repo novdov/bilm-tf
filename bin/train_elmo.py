@@ -1,7 +1,12 @@
 
 import argparse
+import os
+import sys
 
 import numpy as np
+
+# sys.path.append(os.pardir)
+# sys.path.append('/sunwoongenv/mldev_local/bilm-tf/')
 
 from bilm.training import train, load_options_latest_checkpoint, load_vocab
 from bilm.data import BidirectionalLMDataset
@@ -12,15 +17,16 @@ def main(args):
     vocab = load_vocab(args.vocab_file, 50)
 
     # define the options
-    batch_size = 128  # batch size for each GPU
-    n_gpus = 3
+    batch_size = 64  # batch size for each GPU
+    n_gpus = 1
 
     # number of tokens in training data (this for 1B Word Benchmark)
-    n_train_tokens = 768648884
+    # n_train_tokens = 768648884
+    # 연애의 과학 토크나이징된 카톡 데이터 (identified_corpus_20180105) 토큰 개수
+    n_train_tokens = 605918
 
     options = {
      'bidirectional': True,
-
      'char_cnn': {'activation': 'relu',
       'embedding': {'dim': 16},
       'filters': [[1, 32],
@@ -33,7 +39,7 @@ def main(args):
       'max_characters_per_token': 50,
       'n_characters': 261,
       'n_highway': 2},
-    
+
      'dropout': 0.1,
     
      'lstm': {
