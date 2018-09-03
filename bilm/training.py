@@ -1,16 +1,16 @@
-'''
+"""
 Train and test bidirectional language models.
-'''
+"""
 
+import json
 import os
 import time
-import json
 import re
 
 import tensorflow as tf
 import numpy as np
 
-from tensorflow.python.ops.init_ops import glorot_uniform_initializer
+# from tensorflow.python.ops.init_ops import glorot_uniform_initializer
 
 from .data import Vocabulary, UnicodeCharsVocabulary, InvalidNumberOfCharacters
 
@@ -23,52 +23,52 @@ tf.logging.set_verbosity(tf.logging.INFO)
 
 def print_variable_summary():
     import pprint
-    variables = sorted([[v.name, v.get_shape()] for v in tf.global_variables()])
+    variables = sorted([[v.name, v.get_shape()]
+                        for v in tf.global_variables()])
     pprint.pprint(variables)
 
 
 class LanguageModel(object):
-    '''
+    """
     A class to build the tensorflow computational graph for NLMs
 
     All hyperparameters and model configuration is specified in a dictionary
     of 'options'.
 
     is_training is a boolean used to control behavior of dropout layers
-        and softmax.  Set to False for testing.
+        and softmax. Set to False for testing.
 
     The LSTM cell is controlled by the 'lstm' key in options
     Here is an example:
 
-     'lstm': {
-      'cell_clip': 5,
-      'dim': 4096,
-      'n_layers': 2,
-      'proj_clip': 5,
-      'projection_dim': 512,
-      'use_skip_connections': True},
+    'lstm': {
+        'cell_clip': 5,
+        'dim': 4096,
+        'n_layers': 2,
+        'proj_clip': 5,
+        'projection_dim': 512,
+        'use_skip_connections': True
+    },
 
-        'projection_dim' is assumed token embedding size and LSTM output size.
-        'dim' is the hidden state size.
-        Set 'dim' == 'projection_dim' to skip a projection layer.
-    '''
+    'projection_dim' is assumed token embedding size and LSTM output size.
+    'dim' is the hidden state size.
+    Set 'dim' == 'projection_dim' to skip a projection layer.
+    """
     def __init__(self, options, is_training):
         self.options = options
         self.is_training = is_training
         self.bidirectional = options.get('bidirectional', False)
 
-        # use word or char inputs?
+        # use word or char inputs
         self.char_inputs = 'char_cnn' in self.options
 
         # for the loss function
         self.share_embedding_softmax = options.get(
             'share_embedding_softmax', False)
         if self.char_inputs and self.share_embedding_softmax:
-            raise ValueError("Sharing softmax and embedding weights requires "
-                             "word input")
+            raise ValueError('Sharing softmax and embedding weights requires word input')
 
         self.sample_softmax = options.get('sample_softmax', True)
-
         self._build()
 
     def _build_word_embeddings(self):
@@ -80,30 +80,25 @@ class LanguageModel(object):
         projection_dim = self.options['lstm']['projection_dim']
 
         # the input token_ids and word embeddings
-        self.token_ids = tf.placeholder(DTYPE_INT,
-                               shape=(batch_size, unroll_steps),
-                               name='token_ids')
+        self.token_ids = tf.placeholder(
+            DTYPE_INT, shape=(batch_size, unroll_steps), name='token_ids')
         # the word embeddings
         with tf.device("/cpu:0"):
             self.embedding_weights = tf.get_variable(
-                "embedding", [n_tokens_vocab, projection_dim],
-                dtype=DTYPE,
-            )
-            self.embedding = tf.nn.embedding_lookup(self.embedding_weights,
-                                                self.token_ids)
-
+                'embedding', [n_tokens_vocab, projection_dim], dtype=DTYPE)
+            self.embedding = tf.nn.embedding_lookup(
+                self.embedding_weights, self.token_ids)
         # if a bidirectional LM then make placeholders for reverse
         # model and embeddings
         if self.bidirectional:
-            self.token_ids_reverse = tf.placeholder(DTYPE_INT,
-                               shape=(batch_size, unroll_steps),
-                               name='token_ids_reverse')
+            self.token_ids_reverse = tf.placeholder(
+                DTYPE_INT, shape=(batch_size, unroll_steps), name='token_ids_reverse')
             with tf.device("/cpu:0"):
                 self.embedding_reverse = tf.nn.embedding_lookup(
                     self.embedding_weights, self.token_ids_reverse)
 
     def _build_word_char_embeddings(self):
-        '''
+        """
         options contains key 'char_cnn': {
 
         'n_characters': 262,
@@ -129,7 +124,7 @@ class LanguageModel(object):
         # if omitted, then no highway layers
         'n_highway': 2,
         }
-        '''
+        """
         batch_size = self.options['batch_size']
         unroll_steps = self.options['unroll_steps']
         projection_dim = self.options['lstm']['projection_dim']
@@ -140,37 +135,40 @@ class LanguageModel(object):
         max_chars = cnn_options['max_characters_per_token']
         char_embed_dim = cnn_options['embedding']['dim']
         n_chars = cnn_options['n_characters']
+
         if n_chars != 261:
             raise InvalidNumberOfCharacters(
-                    "Set n_characters=261 for training see the README.md"
-            )
+                "Set n_characters=261 for training see the README.md")
+
         if cnn_options['activation'] == 'tanh':
             activation = tf.nn.tanh
         elif cnn_options['activation'] == 'relu':
             activation = tf.nn.relu
 
         # the input character ids 
-        self.tokens_characters = tf.placeholder(DTYPE_INT,
-                                   shape=(batch_size, unroll_steps, max_chars),
-                                   name='tokens_characters')
+        self.tokens_characters = tf.placeholder(
+            DTYPE_INT,
+            shape=(batch_size, unroll_steps, max_chars),
+            name='tokens_characters')
+
         # the character embeddings
-        with tf.device("/cpu:0"):
+        with tf.device('/cpu:0'):
             self.embedding_weights = tf.get_variable(
-                    "char_embed", [n_chars, char_embed_dim],
+                    'char_embed', [n_chars, char_embed_dim],
                     dtype=DTYPE,
                     initializer=tf.random_uniform_initializer(-1.0, 1.0)
             )
             # shape (batch_size, unroll_steps, max_chars, embed_dim)
             self.char_embedding = tf.nn.embedding_lookup(self.embedding_weights,
-                                                    self.tokens_characters)
+                                                         self.tokens_characters)
 
             if self.bidirectional:
-                self.tokens_characters_reverse = tf.placeholder(DTYPE_INT,
-                                   shape=(batch_size, unroll_steps, max_chars),
-                                   name='tokens_characters_reverse')
+                self.tokens_characters_reverse = tf.placeholder(
+                    DTYPE_INT,
+                    shape=(batch_size, unroll_steps, max_chars),
+                    name='tokens_characters_reverse')
                 self.char_embedding_reverse = tf.nn.embedding_lookup(
                     self.embedding_weights, self.tokens_characters_reverse)
-
 
         # the convolutions
         def make_convolutions(inp, reuse):
@@ -180,7 +178,7 @@ class LanguageModel(object):
                     if cnn_options['activation'] == 'relu':
                         # He initialization for ReLU activation
                         # with char embeddings init between -1 and 1
-                        #w_init = tf.random_normal_initializer(
+                        # w_init = tf.random_normal_initializer(
                         #    mean=0.0,
                         #    stddev=np.sqrt(2.0 / (width * char_embed_dim))
                         #)
@@ -191,11 +189,9 @@ class LanguageModel(object):
                     elif cnn_options['activation'] == 'tanh':
                         # glorot init
                         w_init = tf.random_normal_initializer(
-                            mean=0.0,
-                            stddev=np.sqrt(1.0 / (width * char_embed_dim))
-                        )
+                            mean=0.0, stddev=np.sqrt(1.0 / (width * char_embed_dim)))
                     w = tf.get_variable(
-                        "W_cnn_%s" % i,
+                        'W_cnn_{}'.format(i),
                         [1, width, char_embed_dim, num],
                         initializer=w_init,
                         dtype=DTYPE)
@@ -215,7 +211,6 @@ class LanguageModel(object):
                     # activation
                     conv = activation(conv)
                     conv = tf.squeeze(conv, squeeze_dims=[2])
-
                     convolutions.append(conv)
 
             return tf.concat(convolutions, 2)
@@ -240,8 +235,8 @@ class LanguageModel(object):
         if use_highway or use_proj:
             embedding = tf.reshape(embedding, [-1, n_filters])
             if self.bidirectional:
-                embedding_reverse = tf.reshape(embedding_reverse,
-                    [-1, n_filters])
+                embedding_reverse = tf.reshape(
+                    embedding_reverse, [-1, n_filters])
 
         # set up weights for projection
         if use_proj:
@@ -270,7 +265,7 @@ class LanguageModel(object):
                 with tf.variable_scope('CNN_high_%s' % i) as scope:
                     W_carry = tf.get_variable(
                         'W_carry', [highway_dim, highway_dim],
-                        # glorit init
+                        # glorot init
                         initializer=tf.random_normal_initializer(
                             mean=0.0, stddev=np.sqrt(1.0 / highway_dim)),
                         dtype=DTYPE)
@@ -295,20 +290,15 @@ class LanguageModel(object):
                                              W_carry, b_carry,
                                              W_transform, b_transform)
                 self.token_embedding_layers.append(
-                    tf.reshape(embedding, 
-                        [batch_size, unroll_steps, highway_dim])
-                )
+                    tf.reshape(embedding, [batch_size, unroll_steps, highway_dim]))
 
         # finally project down to projection dim if needed
         if use_proj:
             embedding = tf.matmul(embedding, W_proj_cnn) + b_proj_cnn
             if self.bidirectional:
-                embedding_reverse = tf.matmul(embedding_reverse, W_proj_cnn) \
-                    + b_proj_cnn
+                embedding_reverse = tf.matmul(embedding_reverse, W_proj_cnn) + b_proj_cnn
             self.token_embedding_layers.append(
-                tf.reshape(embedding,
-                        [batch_size, unroll_steps, projection_dim])
-            )
+                tf.reshape(embedding, [batch_size, unroll_steps, projection_dim]))
 
         # reshape back to (batch_size, tokens, dim)
         if use_highway or use_proj:
@@ -356,8 +346,7 @@ class LanguageModel(object):
         cell_clip = self.options['lstm'].get('cell_clip')
         proj_clip = self.options['lstm'].get('proj_clip')
 
-        use_skip_connections = self.options['lstm'].get(
-                                            'use_skip_connections')
+        use_skip_connections = self.options['lstm'].get('use_skip_connections')
         if use_skip_connections:
             print("USING SKIP CONNECTIONS")
 
@@ -372,8 +361,7 @@ class LanguageModel(object):
                         cell_clip=cell_clip, proj_clip=proj_clip)
                 else:
                     lstm_cell = tf.nn.rnn_cell.LSTMCell(
-                        lstm_dim,
-                        cell_clip=cell_clip, proj_clip=proj_clip)
+                        lstm_dim, cell_clip=cell_clip, proj_clip=proj_clip)
 
                 if use_skip_connections:
                     # ResidualWrapper adds inputs to outputs
@@ -387,8 +375,8 @@ class LanguageModel(object):
 
                 # add dropout
                 if self.is_training:
-                    lstm_cell = tf.nn.rnn_cell.DropoutWrapper(lstm_cell,
-                        input_keep_prob=keep_prob)
+                    lstm_cell = tf.nn.rnn_cell.DropoutWrapper(
+                        lstm_cell, input_keep_prob=keep_prob)
 
                 lstm_cells.append(lstm_cell)
 
@@ -421,40 +409,36 @@ class LanguageModel(object):
             if self.is_training:
                 # add dropout to output
                 lstm_output_flat = tf.nn.dropout(lstm_output_flat,
-                    keep_prob)
+                                                 keep_prob)
             tf.add_to_collection('lstm_output_embeddings',
-                _lstm_output_unpacked)
+                                 _lstm_output_unpacked)
 
             lstm_outputs.append(lstm_output_flat)
 
         self._build_loss(lstm_outputs)
 
     def _build_loss(self, lstm_outputs):
-        '''
+        """
         Create:
             self.total_loss: total loss op for training
             self.softmax_W, softmax_b: the softmax variables
             self.next_token_id / _reverse: placeholders for gold input
-
-        '''
+        """
         batch_size = self.options['batch_size']
         unroll_steps = self.options['unroll_steps']
-
         n_tokens_vocab = self.options['n_tokens_vocab']
 
         # DEFINE next_token_id and *_reverse placeholders for the gold input
         def _get_next_token_placeholders(suffix):
             name = 'next_token_id' + suffix
-            id_placeholder = tf.placeholder(DTYPE_INT,
-                                   shape=(batch_size, unroll_steps),
-                                   name=name)
+            id_placeholder = tf.placeholder(
+                DTYPE_INT, shape=(batch_size, unroll_steps), name=name)
             return id_placeholder
 
         # get the window and weight placeholders
         self.next_token_id = _get_next_token_placeholders('')
         if self.bidirectional:
-            self.next_token_id_reverse = _get_next_token_placeholders(
-                '_reverse')
+            self.next_token_id_reverse = _get_next_token_placeholders('_reverse')
 
         # DEFINE THE SOFTMAX VARIABLES
         # get the dimension of the softmax weights
@@ -467,15 +451,12 @@ class LanguageModel(object):
             self.softmax_W = self.embedding_weights
 
         with tf.variable_scope('softmax'), tf.device('/cpu:0'):
-            # Glorit init (std=(1.0 / sqrt(fan_in))
-            softmax_init = tf.random_normal_initializer(0.0,
-                1.0 / np.sqrt(softmax_dim))
+            # Glorot init (std=(1.0 / sqrt(fan_in))
+            softmax_init = tf.random_normal_initializer(0.0, 1.0 / np.sqrt(softmax_dim))
             if not self.share_embedding_softmax:
                 self.softmax_W = tf.get_variable(
                     'W', [n_tokens_vocab, softmax_dim],
-                    dtype=DTYPE,
-                    initializer=softmax_init
-                )
+                    dtype=DTYPE, initializer=softmax_init)
             self.softmax_b = tf.get_variable(
                 'b', [n_tokens_vocab],
                 dtype=DTYPE,
@@ -499,38 +480,37 @@ class LanguageModel(object):
             with tf.control_dependencies([lstm_output_flat]):
                 if self.is_training and self.sample_softmax:
                     losses = tf.nn.sampled_softmax_loss(
-                                   self.softmax_W, self.softmax_b,
-                                   next_token_id_flat, lstm_output_flat,
-                                   self.options['n_negative_samples_batch'],
-                                   self.options['n_tokens_vocab'],
-                                   num_true=1)
+                        self.softmax_W, self.softmax_b,
+                        next_token_id_flat, lstm_output_flat,
+                        self.options['n_negative_samples_batch'],
+                        self.options['n_tokens_vocab'],
+                        num_true=1)
 
                 else:
                     # get the full softmax loss
                     output_scores = tf.matmul(
-                        lstm_output_flat,
-                        tf.transpose(self.softmax_W)
-                    ) + self.softmax_b
+                        lstm_output_flat, tf.transpose(self.softmax_W)) + self.softmax_b
                     # NOTE: tf.nn.sparse_softmax_cross_entropy_with_logits
-                    #   expects unnormalized output since it performs the
+                    #   expects un-normalized output since it performs the
                     #   softmax internally
                     losses = tf.nn.sparse_softmax_cross_entropy_with_logits(
                         logits=output_scores,
-                        labels=tf.squeeze(next_token_id_flat, squeeze_dims=[1])
-                    )
+                        labels=tf.squeeze(next_token_id_flat, squeeze_dims=[1]))
 
             self.individual_losses.append(tf.reduce_mean(losses))
 
         # now make the total loss -- it's the mean of the individual losses
         if self.bidirectional:
-            self.total_loss = 0.5 * (self.individual_losses[0]
-                                    + self.individual_losses[1])
+            self.total_loss = 0.5 * (self.individual_losses[0] +
+                                     self.individual_losses[1])
         else:
             self.total_loss = self.individual_losses[0]
 
 
 def average_gradients(tower_grads, batch_size, options):
-    # calculate average gradient for each shared variable across all GPUs
+    """
+    calculate average gradient for each shared variable across all GPUs
+    """
     average_grads = []
     for grad_and_vars in zip(*tower_grads):
         # Note that each grad_and_vars looks like the following:
@@ -587,7 +567,9 @@ def average_gradients(tower_grads, batch_size, options):
 
 
 def summary_gradient_updates(grads, opt, lr):
-    '''get summary ops for the magnitude of gradient updates'''
+    """
+    get summary ops for the magnitude of gradient updates
+    """
 
     # strategy:
     # make a dict of variable name -> [variable, grad, adagrad slot]
@@ -619,17 +601,21 @@ def summary_gradient_updates(grads, opt, lr):
 
         values_norm = tf.sqrt(tf.reduce_sum(v * v)) + 1.0e-7
         updates_norm = tf.sqrt(tf.reduce_sum(updates * updates))
-        ret.append(
-                tf.summary.scalar('UPDATE/' + vname.replace(":", "_"), updates_norm / values_norm))
+        ret.append(tf.summary.scalar(
+            'UPDATE/' + vname.replace(":", "_"), updates_norm / values_norm))
 
     return ret
 
+
 def _deduplicate_indexed_slices(values, indices):
-    """Sums `values` associated with any non-unique `indices`.
+    """
+    Sums `values` associated with any non-unique `indices`.
+
     Args:
       values: A `Tensor` with rank >= 1.
       indices: A one-dimensional integer `Tensor`, indexing into the first
       dimension of `values` (as in an IndexedSlices object).
+
     Returns:
       A tuple of (`summed_values`, `unique_indices`) where `unique_indices` is a
       de-duplicated version of `indices` and `summed_values` contains the sum of
@@ -639,7 +625,7 @@ def _deduplicate_indexed_slices(values, indices):
     summed_values = tf.unsorted_segment_sum(
       values, new_index_positions,
       tf.shape(unique_indices)[0])
-    return (summed_values, unique_indices)
+    return summed_values, unique_indices
 
 
 def _get_feed_dict_from_X(X, start, end, model, char_inputs, bidirectional):
@@ -672,11 +658,14 @@ def _get_feed_dict_from_X(X, start, end, model, char_inputs, bidirectional):
     return feed_dict
 
 
-def train(options, data, n_gpus, tf_save_dir, tf_log_dir,
+def train(options, data, n_gpus,
+          tf_save_dir, tf_log_dir,
           restart_ckpt_file=None):
 
     # not restarting so save the options
     if restart_ckpt_file is None:
+        if not os.path.exists(tf_save_dir):
+            os.makedirs(tf_save_dir)
         with open(os.path.join(tf_save_dir, 'options.json'), 'w') as fout:
             fout.write(json.dumps(options))
 
@@ -698,7 +687,7 @@ def train(options, data, n_gpus, tf_save_dir, tf_log_dir,
             initializer=tf.constant_initializer(0.0), trainable=False)
         norm_summaries = []
         for k in range(n_gpus):
-            with tf.device('/gpu:%d' % k):
+            with tf.device('/gpu:{}'.format(k)):
                 with tf.variable_scope('lm', reuse=k > 0):
                     # calculate the loss for one model replica and get
                     #   lstm states
@@ -708,8 +697,7 @@ def train(options, data, n_gpus, tf_save_dir, tf_log_dir,
                     # get gradients
                     grads = opt.compute_gradients(
                         loss * options['unroll_steps'],
-                        aggregation_method=tf.AggregationMethod.EXPERIMENTAL_TREE,
-                    )
+                        aggregation_method=tf.AggregationMethod.EXPERIMENTAL_TREE)
                     tower_grads.append(grads)
                     # keep track of loss across all GPUs
                     train_perplexity += loss
@@ -723,14 +711,12 @@ def train(options, data, n_gpus, tf_save_dir, tf_log_dir,
 
         # log the training perplexity
         train_perplexity = tf.exp(train_perplexity / n_gpus)
-        perplexity_summmary = tf.summary.scalar(
-            'train_perplexity', train_perplexity)
+        perplexity_summary = tf.summary.scalar('train_perplexity', train_perplexity)
 
         # some histogram summaries.  all models use the same parameters
         # so only need to summarize one
-        histogram_summaries = [
-            tf.summary.histogram('token_embedding', models[0].embedding)
-        ]
+        histogram_summaries = [tf.summary.histogram(
+            'token_embedding', models[0].embedding)]
         # tensors of the output from the LSTM layer
         lstm_out = tf.get_collection('lstm_output_embeddings')
         histogram_summaries.append(
@@ -749,16 +735,14 @@ def train(options, data, n_gpus, tf_save_dir, tf_log_dir,
 
         # get the gradient updates -- these aren't histograms, but we'll
         # only update them when histograms are computed
-        histogram_summaries.extend(
-            summary_gradient_updates(grads, opt, lr))
+        histogram_summaries.extend(summary_gradient_updates(grads, opt, lr))
 
-        saver = tf.train.Saver(tf.global_variables(), max_to_keep=2)
+        saver = tf.train.Saver(tf.global_variables(), max_to_keep=10)
         summary_op = tf.summary.merge(
-            [perplexity_summmary] + norm_summaries
-        )
+            [perplexity_summary] + norm_summaries)
         hist_summary_op = tf.summary.merge(histogram_summaries)
 
-        init = tf.initialize_all_variables()
+        init = tf.global_variables_initializer()
 
     # do the training loop
     bidirectional = options.get('bidirectional', False)
@@ -772,6 +756,7 @@ def train(options, data, n_gpus, tf_save_dir, tf_log_dir,
             loader.restore(sess, restart_ckpt_file)
             
         summary_writer = tf.summary.FileWriter(tf_log_dir, sess.graph)
+        # saver = tf.train.Saver
 
         # For each batch:
         # Get a batch of data from the generator. The generator will
@@ -784,12 +769,12 @@ def train(options, data, n_gpus, tf_save_dir, tf_log_dir,
 
         batch_size = options['batch_size']
         unroll_steps = options['unroll_steps']
-        n_train_tokens = options.get('n_train_tokens', 768648884)
+        n_train_tokens = options.get('n_train_tokens', 605918)
         n_tokens_per_batch = batch_size * unroll_steps * n_gpus
         n_batches_per_epoch = int(n_train_tokens / n_tokens_per_batch)
         n_batches_total = options['n_epochs'] * n_batches_per_epoch
-        print("Training for %s epochs and %s batches" % (
-            options['n_epochs'], n_batches_total))
+        print("Training for %s epochs and %s batches"
+              % (options['n_epochs'], n_batches_total))
 
         # get the initial lstm states
         init_state_tensors = []
@@ -804,32 +789,28 @@ def train(options, data, n_gpus, tf_save_dir, tf_log_dir,
 
         if not char_inputs:
             feed_dict = {
-                model.token_ids:
-                    np.zeros([batch_size, unroll_steps], dtype=np.int64)
+                model.token_ids: np.zeros(
+                    [batch_size, unroll_steps], dtype=np.int64)
                 for model in models
             }
         else:
             feed_dict = {
-                model.tokens_characters:
-                    np.zeros([batch_size, unroll_steps, max_chars],
-                             dtype=np.int32)
+                model.tokens_characters: np.zeros(
+                    [batch_size, unroll_steps, max_chars], dtype=np.int32)
                 for model in models
             }
 
         if bidirectional:
             if not char_inputs:
                 feed_dict.update({
-                    model.token_ids_reverse:
-                        np.zeros([batch_size, unroll_steps], dtype=np.int64)
-                    for model in models
-                })
+                    model.token_ids_reverse: np.zeros(
+                        [batch_size, unroll_steps], dtype=np.int64)
+                    for model in models})
             else:
                 feed_dict.update({
-                    model.tokens_characters_reverse:
-                        np.zeros([batch_size, unroll_steps, max_chars],
-                                 dtype=np.int32)
-                    for model in models
-                })
+                    model.tokens_characters_reverse: np.zeros(
+                        [batch_size, unroll_steps, max_chars], dtype=np.int32)
+                    for model in models})
 
         init_state_values = sess.run(init_state_tensors, feed_dict=feed_dict)
 
@@ -840,26 +821,22 @@ def train(options, data, n_gpus, tf_save_dir, tf_log_dir,
             # slice the input in the batch for the feed_dict
             X = batch
             feed_dict = {t: v for t, v in zip(
-                                        init_state_tensors, init_state_values)}
+                init_state_tensors, init_state_values)}
             for k in range(n_gpus):
                 model = models[k]
                 start = k * batch_size
                 end = (k + 1) * batch_size
 
-                feed_dict.update(
-                    _get_feed_dict_from_X(X, start, end, model,
-                                          char_inputs, bidirectional)
-                )
+                feed_dict.update(_get_feed_dict_from_X(
+                    X, start, end, model, char_inputs, bidirectional))
 
             # This runs the train_op, summaries and the "final_state_tensors"
-            #   which just returns the tensors, passing in the initial
-            #   state tensors, token ids and next token ids
-            if batch_no % 1250 != 0:
+            # which just returns the tensors, passing in the initial
+            # state tensors, token ids and next token ids
+            if batch_no % 500 != 0:
                 ret = sess.run(
-                    [train_op, summary_op, train_perplexity] +
-                                                final_state_tensors,
-                    feed_dict=feed_dict
-                )
+                    [train_op, summary_op, train_perplexity] + final_state_tensors,
+                    feed_dict=feed_dict)
 
                 # first three entries of ret are:
                 #  train_op, summary_op, train_perplexity
@@ -871,14 +848,11 @@ def train(options, data, n_gpus, tf_save_dir, tf_log_dir,
             else:
                 # also run the histogram summaries
                 ret = sess.run(
-                    [train_op, summary_op, train_perplexity, hist_summary_op] + 
-                                                final_state_tensors,
-                    feed_dict=feed_dict
-                )
+                    [train_op, summary_op, train_perplexity, hist_summary_op] + final_state_tensors,
+                    feed_dict=feed_dict)
                 init_state_values = ret[4:]
-                
 
-            if batch_no % 1250 == 0:
+            if batch_no % 500 == 0:
                 summary_writer.add_summary(ret[3], batch_no)
             if batch_no % 100 == 0:
                 # write the summaries to tensorboard and display perplexity
@@ -886,9 +860,10 @@ def train(options, data, n_gpus, tf_save_dir, tf_log_dir,
                 print("Batch %s, train_perplexity=%s" % (batch_no, ret[2]))
                 print("Total time: %s" % (time.time() - t1))
 
-            if (batch_no % 1250 == 0) or (batch_no == n_batches_total):
+            # if (batch_no % 100 == 0) or (batch_no == n_batches_total):
+            # if batch_no % 100 == 0 :
                 # save the model
-                checkpoint_path = os.path.join(tf_save_dir, 'model.ckpt')
+                checkpoint_path = os.path.join(tf_save_dir, 'model_batch{}.ckpt'.format(batch_no))
                 saver.save(sess, checkpoint_path, global_step=global_step)
 
             if batch_no == n_batches_total:
@@ -953,9 +928,9 @@ def clip_grads(grads, options, do_summaries, global_step):
 
 
 def test(options, ckpt_file, data, batch_size=256):
-    '''
-    Get the test set perplexity!
-    '''
+    """
+    Get the test set perplexity
+    """
 
     bidirectional = options.get('bidirectional', False)
     char_inputs = 'char_cnn' in options
@@ -965,6 +940,8 @@ def test(options, ckpt_file, data, batch_size=256):
     unroll_steps = 1
 
     config = tf.ConfigProto(allow_soft_placement=True)
+    # config = tf.ConfigProto()
+    # config.gpu_options.allow_growth = True
     with tf.Session(config=config) as sess:
         with tf.device('/gpu:0'), tf.variable_scope('lm'):
             test_options = dict(options)
@@ -984,7 +961,7 @@ def test(options, ckpt_file, data, batch_size=256):
         if not char_inputs:
             feed_dict = {
                 model.token_ids:
-                        np.zeros([batch_size, unroll_steps], dtype=np.int64)
+                    np.zeros([batch_size, unroll_steps], dtype=np.int64)
             }
             if bidirectional:
                 feed_dict.update({
@@ -994,40 +971,37 @@ def test(options, ckpt_file, data, batch_size=256):
         else:
             feed_dict = {
                 model.tokens_characters:
-                   np.zeros([batch_size, unroll_steps, max_chars],
-                                 dtype=np.int32)
+                    np.zeros([batch_size, unroll_steps, max_chars],
+                             dtype=np.int32)
             }
             if bidirectional:
                 feed_dict.update({
                     model.tokens_characters_reverse:
                         np.zeros([batch_size, unroll_steps, max_chars],
-                            dtype=np.int32)
+                                 dtype=np.int32)
                 })
 
-        init_state_values = sess.run(
-            init_state_tensors,
-            feed_dict=feed_dict)
+        init_state_values = sess.run(init_state_tensors,
+                                     feed_dict=feed_dict)
 
         t1 = time.time()
         batch_losses = []
         total_loss = 0.0
         for batch_no, batch in enumerate(
-                                data.iter_batches(batch_size, 1), start=1):
+                data.iter_batches(batch_size, 1), start=1):
             # slice the input in the batch for the feed_dict
             X = batch
 
             feed_dict = {t: v for t, v in zip(
-                                        init_state_tensors, init_state_values)}
+                init_state_tensors, init_state_values)}
 
             feed_dict.update(
-                _get_feed_dict_from_X(X, 0, X['token_ids'].shape[0], model, 
-                                          char_inputs, bidirectional)
-            )
+                _get_feed_dict_from_X(X, 0, X['token_ids'].shape[0], model,
+                                      char_inputs, bidirectional))
 
             ret = sess.run(
                 [model.total_loss, final_state_tensors],
-                feed_dict=feed_dict
-            )
+                feed_dict=feed_dict)
 
             loss, init_state_values = ret
             batch_losses.append(loss)
@@ -1035,16 +1009,17 @@ def test(options, ckpt_file, data, batch_size=256):
             total_loss += loss
             avg_perplexity = np.exp(total_loss / batch_no)
 
-            print("batch=%s, batch_perplexity=%s, avg_perplexity=%s, time=%s" %
-                (batch_no, batch_perplexity, avg_perplexity, time.time() - t1))
+            print("batch=%s, batch_perplexity=%s, avg_perplexity=%s, time=%s"
+                  % (batch_no, batch_perplexity, avg_perplexity, time.time() - t1))
 
     avg_loss = np.mean(batch_losses)
-    print("FINSIHED!  AVERAGE PERPLEXITY = %s" % np.exp(avg_loss))
+    print("FINISHED!  AVERAGE PERPLEXITY = %s" % np.exp(avg_loss))
 
     return np.exp(avg_loss)
 
 
 def load_options_latest_checkpoint(tf_save_dir):
+
     options_file = os.path.join(tf_save_dir, 'options.json')
     ckpt_file = tf.train.latest_checkpoint(tf_save_dir)
 
@@ -1063,9 +1038,9 @@ def load_vocab(vocab_file, max_word_length=None):
 
 
 def dump_weights(tf_save_dir, outfile):
-    '''
+    """
     Dump the trained weights from a model to a HDF5 file.
-    '''
+    """
     import h5py
 
     def _get_outname(tf_name):
@@ -1105,4 +1080,3 @@ def dump_weights(tf_save_dir, outfile):
                 dset = fout.create_dataset(outname, shape, dtype='float32')
                 values = sess.run([v])[0]
                 dset[...] = values
-

@@ -11,15 +11,13 @@ DTYPE_INT = 'int64'
 
 
 class BidirectionalLanguageModel(object):
-    def __init__(
-            self,
-            options_file: str,
-            weight_file: str,
-            use_character_inputs=True,
-            embedding_weight_file=None,
-            max_batch_size=128,
-        ):
-        '''
+    def __init__(self,
+                 options_file: str,
+                 weight_file: str,
+                 use_character_inputs=True,
+                 embedding_weight_file=None,
+                 max_batch_size=64,):
+        """
         Creates the language model computational graph and loads weights
 
         Two options for input type:
@@ -38,14 +36,14 @@ class BidirectionalLanguageModel(object):
         use_character_inputs: if True, then use character ids as input,
             otherwise use token ids
         max_batch_size: the maximum allowable batch size 
-        '''
+        """
         with open(options_file, 'r') as fin:
             options = json.load(fin)
 
         if not use_character_inputs:
             if embedding_weight_file is None:
                 raise ValueError(
-                    "embedding_weight_file is required input with "
+                    "embedding_weight_file is required input with"
                     "not use_character_inputs"
                 )
 
@@ -54,12 +52,11 @@ class BidirectionalLanguageModel(object):
         self._embedding_weight_file = embedding_weight_file
         self._use_character_inputs = use_character_inputs
         self._max_batch_size = max_batch_size
-
         self._ops = {}
         self._graphs = {}
 
     def __call__(self, ids_placeholder):
-        '''
+        """
         Given the input character ids (or token ids), returns a dictionary
             with tensorflow ops:
 
@@ -78,7 +75,7 @@ class BidirectionalLanguageModel(object):
                 character ids for a batch
             If use_character_input=False, it is shape (None, None) and
                 holds the input token ids for a batch
-        '''
+        """
         if ids_placeholder in self._ops:
             # have already created ops for this placeholder, just return them
             ret = self._ops[ids_placeholder]
