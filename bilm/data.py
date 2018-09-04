@@ -334,11 +334,18 @@ class LMDataset(object):
             shuffle_on_load: if True, then shuffle the sentences after loading.
         """
         self._vocab = vocab
-        self._all_shards = glob.glob(filepattern)
+        if isinstance(filepattern, list):
+            _all_shards = []
+            for pattern in filepattern:
+                _all_shards += glob.glob(pattern)
+            self._all_shards = _all_shards
+        else:
+            self._all_shards = glob.glob(filepattern)
+
         print('Found {} shards at {}'.format(
             len(self._all_shards), filepattern))
-        self._shards_to_choose = []
 
+        self._shards_to_choose = []
         self._reverse = reverse
         self._test = test
         self._shuffle_on_load = shuffle_on_load
@@ -385,7 +392,8 @@ class LMDataset(object):
         """
         print('Loading data from: {}'.format(shard_name))
         with open(shard_name) as f:
-            sentences_raw = f.readlines()
+            sentences_raw = [line.split('\t')[-1]
+                             for line in f.readlines() if line.split('\t')[-1]]
 
         if self._reverse:
             sentences = []
@@ -449,12 +457,14 @@ class BidirectionalLMDataset(object):
         """
         bidirectional version of LMDataset
         """
-        self._data_forward = LMDataset(filepattern, vocab,
-                                       reverse=False, test=test,
-                                       shuffle_on_load=shuffle_on_load)
-        self._data_reverse = LMDataset(filepattern, vocab,
-                                       reverse=True, test=test,
-                                       shuffle_on_load=shuffle_on_load)
+        self._data_forward = LMDataset(
+            filepattern, vocab,
+            reverse=False, test=test,
+            shuffle_on_load=shuffle_on_load)
+        self._data_reverse = LMDataset(
+            filepattern, vocab,
+            reverse=True, test=test,
+            shuffle_on_load=shuffle_on_load)
 
     def iter_batches(self, batch_size, num_steps):
         max_word_length = self._data_forward.max_word_length
