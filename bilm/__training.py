@@ -15,11 +15,11 @@ import numpy as np
 
 from .data import Vocabulary, UnicodeCharsVocabulary, InvalidNumberOfCharacters
 
+
 DTYPE = 'float32'
 DTYPE_INT = 'int64'
 
 tf.logging.set_verbosity(tf.logging.INFO)
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 
 def print_variable_summary():
@@ -32,12 +32,16 @@ def print_variable_summary():
 class LanguageModel(object):
     """
     A class to build the tensorflow computational graph for NLMs
+
     All hyperparameters and model configuration is specified in a dictionary
     of 'options'.
+
     is_training is a boolean used to control behavior of dropout layers
         and softmax. Set to False for testing.
+
     The LSTM cell is controlled by the 'lstm' key in options
     Here is an example:
+
     'lstm': {
         'cell_clip': 5,
         'dim': 4096,
@@ -46,11 +50,11 @@ class LanguageModel(object):
         'projection_dim': 512,
         'use_skip_connections': True
     },
+
     'projection_dim' is assumed token embedding size and LSTM output size.
     'dim' is the hidden state size.
     Set 'dim' == 'projection_dim' to skip a projection layer.
     """
-
     def __init__(self, options, is_training):
         self.options = options
         self.is_training = is_training
@@ -97,9 +101,12 @@ class LanguageModel(object):
     def _build_word_char_embeddings(self):
         """
         options contains key 'char_cnn': {
+
         'n_characters': 262,
+
         # includes the start / end characters
         'max_characters_per_token': 50,
+
         'filters': [
             [1, 32],
             [2, 32],
@@ -110,8 +117,10 @@ class LanguageModel(object):
             [7, 512]
         ],
         'activation': 'tanh',
+
         # for the character embedding
         'embedding': {'dim': 16}
+
         # for highway layers
         # if omitted, then no highway layers
         'n_highway': 2,
@@ -120,7 +129,7 @@ class LanguageModel(object):
         batch_size = self.options['batch_size']
         unroll_steps = self.options['unroll_steps']
         projection_dim = self.options['lstm']['projection_dim']
-
+    
         cnn_options = self.options['char_cnn']
         filters = cnn_options['filters']
         n_filters = sum(f[1] for f in filters)
@@ -137,7 +146,7 @@ class LanguageModel(object):
         elif cnn_options['activation'] == 'relu':
             activation = tf.nn.relu
 
-        # the input character ids
+        # the input character ids 
         self.tokens_characters = tf.placeholder(
             DTYPE_INT,
             shape=(batch_size, unroll_steps, max_chars),
@@ -146,9 +155,9 @@ class LanguageModel(object):
         # the character embeddings
         with tf.device('/cpu:0'):
             self.embedding_weights = tf.get_variable(
-                'char_embed', [n_chars, char_embed_dim],
-                dtype=DTYPE,
-                initializer=tf.random_uniform_initializer(-1.0, 1.0)
+                    'char_embed', [n_chars, char_embed_dim],
+                    dtype=DTYPE,
+                    initializer=tf.random_uniform_initializer(-1.0, 1.0)
             )
             # shape (batch_size, unroll_steps, max_chars, embed_dim)
             self.char_embedding = tf.nn.embedding_lookup(self.embedding_weights,
@@ -173,7 +182,7 @@ class LanguageModel(object):
                         # w_init = tf.random_normal_initializer(
                         #    mean=0.0,
                         #    stddev=np.sqrt(2.0 / (width * char_embed_dim))
-                        # )
+                        #)
 
                         # Kim et al 2015, +/- 0.05
                         w_init = tf.random_uniform_initializer(
@@ -192,13 +201,13 @@ class LanguageModel(object):
                         initializer=tf.constant_initializer(0.0))
 
                     conv = tf.nn.conv2d(
-                        inp, w,
-                        strides=[1, 1, 1, 1],
-                        padding="VALID") + b
+                            inp, w,
+                            strides=[1, 1, 1, 1],
+                            padding="VALID") + b
                     # now max pool
                     conv = tf.nn.max_pool(
-                        conv, [1, 1, max_chars - width + 1, 1],
-                        [1, 1, 1, 1], 'VALID')
+                            conv, [1, 1, max_chars-width+1, 1],
+                            [1, 1, 1, 1], 'VALID')
 
                     # activation
                     conv = activation(conv)
@@ -234,15 +243,15 @@ class LanguageModel(object):
         if use_proj:
             assert n_filters > projection_dim
             with tf.variable_scope('CNN_proj') as scope:
-                W_proj_cnn = tf.get_variable(
-                    "W_proj", [n_filters, projection_dim],
-                    initializer=tf.random_normal_initializer(
-                        mean=0.0, stddev=np.sqrt(1.0 / n_filters)),
-                    dtype=DTYPE)
-                b_proj_cnn = tf.get_variable(
-                    "b_proj", [projection_dim],
-                    initializer=tf.constant_initializer(0.0),
-                    dtype=DTYPE)
+                    W_proj_cnn = tf.get_variable(
+                        "W_proj", [n_filters, projection_dim],
+                        initializer=tf.random_normal_initializer(
+                            mean=0.0, stddev=np.sqrt(1.0 / n_filters)),
+                        dtype=DTYPE)
+                    b_proj_cnn = tf.get_variable(
+                        "b_proj", [projection_dim],
+                        initializer=tf.constant_initializer(0.0),
+                        dtype=DTYPE)
 
         # apply highways layers
         def high(x, ww_carry, bb_carry, ww_tr, bb_tr):
@@ -538,7 +547,7 @@ def average_gradients(tower_grads, batch_size, options):
             for g, v in grad_and_vars:
                 # Add 0 dimension to the gradients to represent the tower.
                 expanded_g = tf.expand_dims(g, 0)
-                # Append on a 'tower' dimension which we will average over
+                # Append on a 'tower' dimension which we will average over 
                 grads.append(expanded_g)
 
             # Average over the 'tower' dimension.
@@ -554,7 +563,7 @@ def average_gradients(tower_grads, batch_size, options):
         average_grads.append(grad_and_var)
 
     assert len(average_grads) == len(list(zip(*tower_grads)))
-
+    
     return average_grads
 
 
@@ -602,10 +611,12 @@ def summary_gradient_updates(grads, opt, lr):
 def _deduplicate_indexed_slices(values, indices):
     """
     Sums `values` associated with any non-unique `indices`.
+
     Args:
       values: A `Tensor` with rank >= 1.
       indices: A one-dimensional integer `Tensor`, indexing into the first
       dimension of `values` (as in an IndexedSlices object).
+
     Returns:
       A tuple of (`summed_values`, `unique_indices`) where `unique_indices` is a
       de-duplicated version of `indices` and `summed_values` contains the sum of
@@ -613,8 +624,8 @@ def _deduplicate_indexed_slices(values, indices):
     """
     unique_indices, new_index_positions = tf.unique(indices)
     summed_values = tf.unsorted_segment_sum(
-        values, new_index_positions,
-        tf.shape(unique_indices)[0])
+      values, new_index_positions,
+      tf.shape(unique_indices)[0])
     return summed_values, unique_indices
 
 
@@ -648,9 +659,13 @@ def _get_feed_dict_from_X(X, start, end, model, char_inputs, bidirectional):
     return feed_dict
 
 
-def train(options, data, n_gpus,
-          tf_save_dir, tf_log_dir,
+def train(options,
+          data,
+          n_gpus,
+          tf_save_dir,
+          tf_log_dir,
           restart_ckpt_file=None):
+
     # not restarting so save the options
     if restart_ckpt_file is None:
         if not os.path.exists(tf_save_dir):
@@ -665,8 +680,8 @@ def train(options, data, n_gpus,
 
         # set up the optimizer
         lr = options.get('learning_rate', 0.2)
-        opt = tf.train.AdagradOptimizer(learning_rate=lr,
-                                        initial_accumulator_value=1.0)
+        opt = tf.train.AdagradOptimizer(
+            learning_rate=lr, initial_accumulator_value=1.0)
 
         # calculate the gradients on each GPU
         tower_grads = []
@@ -674,20 +689,23 @@ def train(options, data, n_gpus,
         train_perplexity = tf.get_variable(
             'train_perplexity', [],
             initializer=tf.constant_initializer(0.0), trainable=False)
+
         norm_summaries = []
         for k in range(n_gpus):
             with tf.device('/gpu:{}'.format(k)):
                 with tf.variable_scope('lm', reuse=k > 0):
-                    # calculate the loss for one model replica and get
-                    #   lstm states
+                    # calculate the loss for one model replica
+                    # and get lstm states
                     model = LanguageModel(options, True)
                     loss = model.total_loss
                     models.append(model)
+
                     # get gradients
                     grads = opt.compute_gradients(
                         loss * options['unroll_steps'],
                         aggregation_method=tf.AggregationMethod.EXPERIMENTAL_TREE)
                     tower_grads.append(grads)
+
                     # keep track of loss across all GPUs
                     train_perplexity += loss
 
@@ -702,14 +720,14 @@ def train(options, data, n_gpus,
         train_perplexity = tf.exp(train_perplexity / n_gpus)
         perplexity_summary = tf.summary.scalar('train_perplexity', train_perplexity)
 
-        # some histogram summaries.  all models use the same parameters
+        # some histogram summaries.
+        # all models use the same parameters
         # so only need to summarize one
-        histogram_summaries = [tf.summary.histogram(
-            'token_embedding', models[0].embedding)]
+        histogram_summaries = [tf.summary.histogram('token_embedding', models[0].embedding)]
         # tensors of the output from the LSTM layer
         lstm_out = tf.get_collection('lstm_output_embeddings')
         histogram_summaries.append(
-            tf.summary.histogram('lstm_embedding_0', lstm_out[0]))
+                tf.summary.histogram('lstm_embedding_0', lstm_out[0]))
         if options.get('bidirectional', False):
             # also have the backward embedding
             histogram_summaries.append(
@@ -720,7 +738,7 @@ def train(options, data, n_gpus,
 
         # histograms of variables
         for v in tf.global_variables():
-            histogram_summaries.append(tf.summary.histogram(v.name.replace(":", "_"), v))
+            histogram_summaries.append(tf.summary.histogram(v.name.replace(':', '_'), v))
 
         # get the gradient updates -- these aren't histograms, but we'll
         # only update them when histograms are computed
@@ -735,10 +753,7 @@ def train(options, data, n_gpus,
 
     # do the training loop
     bidirectional = options.get('bidirectional', False)
-
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
-    config = tf.ConfigProto(gpu_options=gpu_options,
-                            allow_soft_placement=True)
+    config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     with tf.Session(config=config) as sess:
         sess.run(init)
@@ -747,12 +762,9 @@ def train(options, data, n_gpus,
         if restart_ckpt_file is not None:
             loader = tf.train.Saver()
             loader.restore(sess, restart_ckpt_file)
-
+            
         summary_writer = tf.summary.FileWriter(tf_log_dir, sess.graph)
 
-        # ###################################################################
-        # # represent word in tensorboard embedding tap (added by sunwoong) #
-        # ###################################################################
         # vocab_file_path = '/media/scatter/scatterdisk/sandbox_temp/data/kakaotalk_sol_unique_tokens.txt'
         # vocabs = load_vocab(vocab_file_path, 50)
         # with open(vocab_file_path) as vocab_file:
@@ -765,14 +777,10 @@ def train(options, data, n_gpus,
         #
         # config = projector.ProjectorConfig()
         # embedding_config = config.embeddings.add()
-        # embedding_config.tensor_name = data.embedding_weights.name
+        # embedding_config.tensor_name = embedding_config.name
         #
         # embedding_config.metadata_path = os.path.join(tf_log_dir, 'metadata.tsv')
         # projector.visualize_embeddings(summary_writer, config)
-        # ###################################################################
-        # # represent word in tensorboard embedding tap (added by sunwoong) #
-        # ###################################################################
-
         # saver = tf.train.Saver
 
         # For each batch:
@@ -786,7 +794,7 @@ def train(options, data, n_gpus,
 
         batch_size = options['batch_size']
         unroll_steps = options['unroll_steps']
-        n_train_tokens = options.get('n_train_tokens', 609518)
+        n_train_tokens = options.get('n_train_tokens', 605918)
         n_tokens_per_batch = batch_size * unroll_steps * n_gpus
         n_batches_per_epoch = int(n_train_tokens / n_tokens_per_batch)
         n_batches_total = options['n_epochs'] * n_batches_per_epoch
@@ -877,8 +885,8 @@ def train(options, data, n_gpus,
                 print("Batch %s, train_perplexity=%s" % (batch_no, ret[2]))
                 print("Total time: %s" % (time.time() - t1))
 
-                # if (batch_no % 100 == 0) or (batch_no == n_batches_total):
-                # if batch_no % 100 == 0 :
+            # if (batch_no % 100 == 0) or (batch_no == n_batches_total):
+            # if batch_no % 100 == 0 :
                 # save the model
                 checkpoint_path = os.path.join(tf_save_dir, 'model_batch{}.ckpt'.format(batch_no))
                 saver.save(sess, checkpoint_path, global_step=global_step)
@@ -901,7 +909,7 @@ def clip_by_global_norm_summary(t_list, clip_norm, norm_name, variables):
         name = 'norm_pre_clip/' + v.name.replace(":", "_")
         summary_ops.append(tf.summary.scalar(name, ns))
 
-    # clip
+    # clip 
     clipped_t_list, tf_norm = tf.clip_by_global_norm(t_list, clip_norm)
 
     # summary ops after clipping
@@ -956,9 +964,8 @@ def test(options, ckpt_file, data, batch_size=256):
 
     unroll_steps = 1
 
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
-    config = tf.ConfigProto(gpu_options=gpu_options,
-                            allow_soft_placement=True)
+    # config = tf.ConfigProto(allow_soft_placement=True)
+    config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     with tf.Session(config=config) as sess:
         with tf.device('/gpu:0'), tf.variable_scope('lm'):
@@ -985,7 +992,7 @@ def test(options, ckpt_file, data, batch_size=256):
                 feed_dict.update({
                     model.token_ids_reverse:
                         np.zeros([batch_size, unroll_steps], dtype=np.int64)
-                })
+                })  
         else:
             feed_dict = {
                 model.tokens_characters:
@@ -1037,6 +1044,7 @@ def test(options, ckpt_file, data, batch_size=256):
 
 
 def load_options_latest_checkpoint(tf_save_dir):
+
     options_file = os.path.join(tf_save_dir, 'options.json')
     ckpt_file = tf.train.latest_checkpoint(tf_save_dir)
 
@@ -1048,8 +1056,8 @@ def load_options_latest_checkpoint(tf_save_dir):
 
 def load_vocab(vocab_file, max_word_length=None):
     if max_word_length:
-        return UnicodeCharsVocabulary(vocab_file, max_word_length,
-                                      validate_file=True)
+        return UnicodeCharsVocabulary(
+            vocab_file, max_word_length, validate_file=True)
     else:
         return Vocabulary(vocab_file, validate_file=True)
 
@@ -1077,9 +1085,7 @@ def dump_weights(tf_save_dir, outfile):
 
     options, ckpt_file = load_options_latest_checkpoint(tf_save_dir)
 
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
-    config = tf.ConfigProto(gpu_options=gpu_options,
-                            allow_soft_placement=True)
+    config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     with tf.Session(config=config) as sess:
         with tf.variable_scope('lm'):

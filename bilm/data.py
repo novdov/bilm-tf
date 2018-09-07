@@ -8,7 +8,8 @@ from typing import List
 
 class Vocabulary(object):
     """
-    A token vocabulary.  Holds a map from token to ids and provides
+    A token vocabulary.
+    Holds a map from token to ids and provides
     a method for encoding text to a sequence of ids.
     """
     def __init__(self, filename, validate_file=False):
@@ -270,8 +271,9 @@ def _get_batch(generator, batch_size, num_steps, max_word_length):
     while True:
         inputs = np.zeros([batch_size, num_steps], np.int32)
         if max_word_length is not None:
-            char_inputs = np.zeros([batch_size, num_steps, max_word_length],
-                                   np.int32)
+            char_inputs = np.zeros(
+                [batch_size, num_steps, max_word_length],
+                np.int32)
         else:
             char_inputs = None
         targets = np.zeros([batch_size, num_steps], np.int32)
@@ -279,6 +281,7 @@ def _get_batch(generator, batch_size, num_steps, max_word_length):
         for i in range(batch_size):
             cur_pos = 0
 
+            # cur_pos:
             while cur_pos < num_steps:
                 if cur_stream[i] is None or len(cur_stream[i][0]) <= 1:
                     try:
@@ -308,8 +311,11 @@ def _get_batch(generator, batch_size, num_steps, max_word_length):
             # for the incomplete batch
             break
 
-        X = {'token_ids': inputs, 'tokens_characters': char_inputs,
-                 'next_token_id': targets}
+        X = {
+            'token_ids': inputs,
+            'tokens_characters': char_inputs,
+            'next_token_id': targets
+        }
 
         yield X
 
@@ -318,12 +324,16 @@ class LMDataset(object):
     """
     Hold a language model dataset.
 
-    A dataset is a list of tokenized files. Each file contains one sentence per line.
+    A dataset is a list of tokenized files.
+    Each file contains one sentence per line.
     Each sentence is pre-tokenized and white space joined.
     """
-    def __init__(self, filepattern,
-                 vocab, reverse=False,
-                 test=False, shuffle_on_load=False):
+    def __init__(self,
+                 filepattern,
+                 vocab,
+                 reverse=False,
+                 test=False,
+                 shuffle_on_load=False):
         """
         Args:
             filepattern: a glob string that specifies the list of files.
@@ -334,13 +344,18 @@ class LMDataset(object):
             shuffle_on_load: if True, then shuffle the sentences after loading.
         """
         self._vocab = vocab
+        #################################
+        # added by sunwoong             #
+        # to handle multi path inputs   #
+        #################################
         if isinstance(filepattern, list):
             _all_shards = []
             for pattern in filepattern:
-                _all_shards += glob.glob(pattern)
+                _all_shards += glob.iglob(pattern)
             self._all_shards = _all_shards
         else:
-            self._all_shards = glob.glob(filepattern)
+            # glob -> iglob
+            self._all_shards = glob.iglob(filepattern)
 
         print('Found {} shards at {}'.format(
             len(self._all_shards), filepattern))
@@ -370,10 +385,11 @@ class LMDataset(object):
                 # and stop iterating
                 raise StopIteration
             else:
-                shard_name = self._all_shards.pop()
+                 shard_name = self._all_shards.pop()
         else:
             # just pick a random shard
             shard_name = self._choose_random_shard()
+            # shard_name = self._all_shards.pop()
 
         ids = self._load_shard(shard_name)
         self._i = 0
@@ -387,13 +403,20 @@ class LMDataset(object):
         Args:
             shard_name: file path.
 
-        Returns:
+        Returns:1
             list of (id, char_id) tuples.
         """
         print('Loading data from: {}'.format(shard_name))
         with open(shard_name) as f:
-            sentences_raw = [line.split('\t')[-1]
-                             for line in f.readlines() if line.split('\t')[-1]]
+            # added by sunwoong
+            # take only sentences from raw data
+            sentences_raw = []
+            for line in f.readlines():
+                sent = line.split('\t')[3]
+                sentences_raw.append(sent)
+
+            # sentences_raw = [line.split('\t')[3]
+            #                  for line in f.readlines() if line.split('\t')[-1]]
 
         if self._reverse:
             sentences = []
