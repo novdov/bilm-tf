@@ -5,9 +5,11 @@ import sys
 
 sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath('../'))
+sys.path.append(os.pardir)
 
 from bilm.training import train, load_options_latest_checkpoint, load_vocab
 from bilm.data import BidirectionalLMDataset
+from train_config import config
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
@@ -77,22 +79,17 @@ def main(args):
 if __name__ == '__main__':
     from datetime import datetime
 
-    ROOT_PATH = '/media/scatter/scatterdisk/pingpong/raw_corpus/'
-    sol_paths_201801015 = 'identified_corpus_20180105/sol/messages/*/*'
-    textat_paths_201801015 = 'identified_corpus_20180105/textat/messages.org/*/*/*'
-
+    ROOT_PATH = config['ROOT_PATH']
+    sol_paths_201801015 = config['sol_paths_201801015']
+    textat_paths_201801015 = config['textat_paths_201801015']
     sol_data_pattern = os.path.join(ROOT_PATH, sol_paths_201801015)
     textat_data_pattern = os.path.join(ROOT_PATH, textat_paths_201801015)
-
     filepattern = [sol_data_pattern, textat_data_pattern]
 
     now = datetime.now()
     date_fmt = '{:%m%d_%H%M}'.format(now)
-    # train_prefix = '/media/scatter/scatterdisk/sandbox_temp/data/kakaotalk_sol_elmo/messages/*/*'
-    save_dir = '/media/scatter/scatterdisk/elmo_ckpt/elmo_ckpt_{}'.format(date_fmt)
-    # vocab_file = '/media/scatter/scatterdisk/sandbox_temp/data/kakaotalk_sol_unique_tokens.txt'
-    # pingpong unique tokens
-    vocab_file = '/media/scatter/scatterdisk/sandbox_temp/data/pingpong_unique_tokens.txt'
+    save_dir = config['save_dir'].format(date_fmt)
+    vocab_file = config['vocab_file']
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--save_dir', help='Location of checkpoint files', default=save_dir)
