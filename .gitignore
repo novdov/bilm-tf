@@ -1,3 +1,5 @@
+*.ipynb
+bin/train_elmo.py
 
 bilm.egg-info/
 dist/

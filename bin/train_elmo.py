@@ -11,6 +11,7 @@ from bilm.data import BidirectionalLMDataset
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
+
 def main(args):
     # load the vocab
     vocab = load_vocab(args.vocab_file, 20)
@@ -30,7 +31,7 @@ def main(args):
         'char_cnn': {
             # 'activation': 'relu',
             'activation': 'tanh',
-            'embedding': {'dim': 16},
+            'embedding': {'dim': 32},
             'filters': [[1, 32],
                         [2, 32],
                         [3, 64],
@@ -58,8 +59,9 @@ def main(args):
         'n_train_tokens': n_train_tokens,
         'batch_size': batch_size,
         'n_tokens_vocab': vocab.size,
-        'unroll_steps': 20,
-        'n_negative_samples_batch': 8192,
+        'unroll_steps': 15,
+        # 'n_negative_samples_batch': 8192,
+        'n_negative_samples_batch': 16384,
     }
 
     prefix = args.train_prefix
