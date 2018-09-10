@@ -33,7 +33,7 @@ def main(args):
         'char_cnn': {
             # 'activation': 'relu',
             'activation': 'tanh',
-            'embedding': {'dim': 32},
+            'embedding': {'dim': 16},
             'filters': [[1, 32],
                         [2, 32],
                         [3, 64],
@@ -43,7 +43,7 @@ def main(args):
                         [7, 1024]],
             'max_characters_per_token': 20,
             'n_characters': 261,
-            'n_highway': 2
+            'n_highway': 2,
         },
 
         'dropout': 0.1,
@@ -53,7 +53,7 @@ def main(args):
             'n_layers': 2,
             'proj_clip': 3,
             'projection_dim': 256,
-            'use_skip_connections': True
+            'use_skip_connections': True,
         },
 
         'all_clip_norm_val': 10.0,
@@ -61,9 +61,8 @@ def main(args):
         'n_train_tokens': n_train_tokens,
         'batch_size': batch_size,
         'n_tokens_vocab': vocab.size,
-        'unroll_steps': 15,
-        # 'n_negative_samples_batch': 8192,
-        'n_negative_samples_batch': 16384,
+        'unroll_steps': 20,
+        'n_negative_samples_batch': 8192,
     }
 
     prefix = args.train_prefix

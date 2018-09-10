@@ -665,8 +665,8 @@ def train(options, data, n_gpus,
 
         # set up the optimizer
         lr = options.get('learning_rate', 0.2)
-        opt = tf.train.AdagradOptimizer(learning_rate=lr,
-                                        initial_accumulator_value=1.0)
+        opt = tf.train.AdagradOptimizer(
+            learning_rate=lr, initial_accumulator_value=1.0)
 
         # calculate the gradients on each GPU
         tower_grads = []
@@ -880,7 +880,9 @@ def train(options, data, n_gpus,
                 # if (batch_no % 100 == 0) or (batch_no == n_batches_total):
                 # if batch_no % 100 == 0 :
                 # save the model
-                checkpoint_path = os.path.join(tf_save_dir, 'model_batch{}.ckpt'.format(batch_no))
+                # checkpoint_path = os.path.join(tf_save_dir, 'model_batch{}.ckpt'.format(batch_no))
+                checkpoint_path = os.path.join(tf_save_dir, 'model_epoch{}.ckpt'.format(
+                        int(n_batches_total/n_batches_per_epoch)))
                 saver.save(sess, checkpoint_path, global_step=global_step)
 
             if batch_no == n_batches_total:
