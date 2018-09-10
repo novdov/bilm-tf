@@ -1079,9 +1079,10 @@ def dump_weights(tf_save_dir, outfile):
 
     options, ckpt_file = load_options_latest_checkpoint(tf_save_dir)
 
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
-    config = tf.ConfigProto(gpu_options=gpu_options,
-                            allow_soft_placement=True)
+    # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
+    config = tf.ConfigProto(
+        # gpu_options=gpu_options,
+        allow_soft_placement=True)
     config.gpu_options.allow_growth = True
     with tf.Session(config=config) as sess:
         with tf.variable_scope('lm'):
