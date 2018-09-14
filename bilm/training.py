@@ -178,15 +178,17 @@ class LanguageModel(object):
                         # Kim et al 2015, +/- 0.05
                         w_init = tf.random_uniform_initializer(
                             minval=-0.05, maxval=0.05)
-                    elif cnn_options['activation'] == 'tanh':
+                    # elif cnn_options['activation'] == 'tanh':
+                    #     # glorot init
+                    #     w_init = tf.random_normal_initializer(
+                    #         mean=0.0, stddev=np.sqrt(1.0 / (width * char_embed_dim)))
+                    else:
                         # glorot init
                         w_init = tf.random_normal_initializer(
                             mean=0.0, stddev=np.sqrt(1.0 / (width * char_embed_dim)))
                     w = tf.get_variable(
-                        'W_cnn_{}'.format(i),
-                        [1, width, char_embed_dim, num],
-                        initializer=w_init,
-                        dtype=DTYPE)
+                        'W_cnn_%s' % i, [1, width, char_embed_dim, num],
+                        initializer=w_init, dtype=DTYPE)
                     b = tf.get_variable(
                         "b_cnn_%s" % i, [num], dtype=DTYPE,
                         initializer=tf.constant_initializer(0.0))
@@ -194,7 +196,7 @@ class LanguageModel(object):
                     conv = tf.nn.conv2d(
                         inp, w,
                         strides=[1, 1, 1, 1],
-                        padding="VALID") + b
+                        padding='VALID') + b
                     # now max pool
                     conv = tf.nn.max_pool(
                         conv, [1, 1, max_chars - width + 1, 1],
@@ -667,6 +669,7 @@ def train(options, data, n_gpus,
         lr = options.get('learning_rate', 0.2)
         opt = tf.train.AdagradOptimizer(
             learning_rate=lr, initial_accumulator_value=1.0)
+        # opt = tf.train.GradientDescentOptimizer(learning_rate=lr)
 
         # calculate the gradients on each GPU
         tower_grads = []
@@ -881,8 +884,7 @@ def train(options, data, n_gpus,
                 # if batch_no % 100 == 0 :
                 # save the model
                 # checkpoint_path = os.path.join(tf_save_dir, 'model_batch{}.ckpt'.format(batch_no))
-                checkpoint_path = os.path.join(tf_save_dir, 'model_epoch{}.ckpt'.format(
-                        int(n_batches_total/n_batches_per_epoch)))
+                checkpoint_path = os.path.join(tf_save_dir, 'model.ckpt_batch')
                 saver.save(sess, checkpoint_path, global_step=global_step)
 
             if batch_no == n_batches_total:

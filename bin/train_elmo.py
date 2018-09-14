@@ -19,14 +19,14 @@ def main(args):
     vocab = load_vocab(args.vocab_file, 20)
 
     # define the options
-    batch_size = 64  # batch size for each GPU
+    batch_size = 64*2  # batch size for each GPU
     n_gpus = 1
 
     # number of tokens in training data (this for 1B Word Benchmark)
-    # n_train_tokens = 768648884
     # 연애의 과학 토크나이징된 카톡 데이터 (identified_corpus_20180105) 토큰 개수
     # 토큰 줄이기
-    n_train_tokens = 609518
+    # n_train_tokens = 609518
+    n_train_tokens = 200000000
 
     options = {
         'bidirectional': True,
@@ -45,8 +45,8 @@ def main(args):
             'n_characters': 261,
             'n_highway': 2,
         },
+        'dropout': 0.2,
 
-        'dropout': 0.1,
         'lstm': {
             'cell_clip': 3,
             'dim': 256,
@@ -61,8 +61,8 @@ def main(args):
         'n_train_tokens': n_train_tokens,
         'batch_size': batch_size,
         'n_tokens_vocab': vocab.size,
-        'unroll_steps': 20,
-        'n_negative_samples_batch': 8192,
+        'unroll_steps': 10,
+        'n_negative_samples_batch': 4096,
     }
 
     prefix = args.train_prefix

@@ -351,11 +351,11 @@ class LMDataset(object):
         if isinstance(filepattern, list):
             _all_shards = []
             for pattern in filepattern:
-                _all_shards += glob.iglob(pattern)
+                _all_shards += glob.glob(pattern)
             self._all_shards = _all_shards
         else:
             # glob -> iglob
-            self._all_shards = glob.iglob(filepattern)
+            self._all_shards = glob.glob(filepattern)
 
         print('Found {} shards at {}'.format(
             len(self._all_shards), filepattern))
@@ -367,11 +367,22 @@ class LMDataset(object):
         self._use_char_inputs = hasattr(vocab, 'encode_chars')
         self._ids = self._load_random_shard()
 
+    # # only load long sentences
+    # @staticmethod
+    # def _check_doc_length(shard_name, min_length):
+    #     is_load = False
+    #     with open(shard_name) as f:
+    #         if len(f.readlines()) > min_length:
+    #             is_load = True
+    #     return is_load
+
     def _choose_random_shard(self):
         if len(self._shards_to_choose) == 0:
             self._shards_to_choose = list(self._all_shards)
             random.shuffle(self._shards_to_choose)
         shard_name = self._shards_to_choose.pop()
+        # while not self._check_doc_length(shard_name, 5000):
+        #     shard_name = self._shards_to_choose.pop()
         return shard_name
 
     def _load_random_shard(self):
@@ -439,7 +450,6 @@ class LMDataset(object):
             chars_ids = [None] * len(ids)
 
         print('Loaded {} sentences.'.format(len(ids)))
-        print('Finished loading')
         return list(zip(ids, chars_ids))
 
     def get_sentence(self):
