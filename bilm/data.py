@@ -2,8 +2,18 @@
 import numpy as np
 import glob
 import random
+import sys
 
 from typing import List
+
+sys.path.append('/home/sunwoong/ml/')
+
+from modules.nlp_pipeline.processor import WordToJamoProcessor
+from modules.nlp_pipeline.nlp_pipeline import NLPPipeline
+
+word_to_jamo_pipeline = NLPPipeline([
+    WordToJamoProcessor()
+])
 
 
 class Vocabulary(object):
@@ -96,6 +106,108 @@ class Vocabulary(object):
             return np.array([self.bos] + word_ids + [self.eos], dtype=np.int32)
 
 
+# class UnicodeCharsVocabulary(Vocabulary):
+#     """
+#     Vocabulary containing character-level and word level information.
+#
+#     Has a word vocabulary that is used to lookup word ids and
+#     a character id that is used to map words to arrays of character ids.
+#
+#     The character ids are defined by ord(c) for c in word.encode('utf-8')
+#     This limits the total number of possible char ids to 256.
+#     To this we add 5 additional special ids: begin sentence, end sentence,
+#         begin word, end word and padding.
+#
+#     WARNING: for prediction, we add +1 to the output ids from this
+#     class to create a special padding id (=0).  As a result, we suggest
+#     you use the `Batcher`, `TokenBatcher`, and `LMDataset` classes instead
+#     of this lower level class.  If you are using this lower level class,
+#     then be sure to add the +1 appropriately, otherwise embeddings computed
+#     from the pre-trained model will be useless.
+#     """
+#     def __init__(self, filename, max_word_length, **kwargs):
+#         super(UnicodeCharsVocabulary, self).__init__(filename, **kwargs)
+#         self._max_word_length = max_word_length
+#
+#         # char ids 0-255 come from utf-8 encoding bytes
+#         # assign 256-300 to special chars
+#         # self.bos_char = 256  # <begin sentence>
+#         # self.eos_char = 257  # <end sentence>
+#         # self.bow_char = 258  # <begin word>
+#         # self.eow_char = 259  # <end word>
+#         # self.pad_char = 260  # <padding>
+#
+#         self.bos_char = 53  # <begin sentence>
+#         self.eos_char = 54  # <end sentence>
+#         self.bow_char = 55  # <begin word>
+#         self.eow_char = 56  # <end word>
+#         self.pad_char = 57  # <padding>
+#
+#         num_words = len(self._id_to_word)
+#
+#         self._word_char_ids = np.zeros(
+#             [num_words, max_word_length], dtype=np.int32)
+#
+#         # the character representation of the begin/end of sentence characters
+#         def _make_bos_eos(c):
+#             r = np.zeros([self.max_word_length], dtype=np.int32)
+#             r[:] = self.pad_char
+#             r[0] = self.bow_char
+#             r[1] = c
+#             r[2] = self.eow_char
+#             return r
+#         self.bos_chars = _make_bos_eos(self.bos_char)
+#         self.eos_chars = _make_bos_eos(self.eos_char)
+#
+#         for i, word in enumerate(self._id_to_word):
+#             self._word_char_ids[i] = self._convert_word_to_char_ids(word)
+#
+#         self._word_char_ids[self.bos] = self.bos_chars
+#         self._word_char_ids[self.eos] = self.eos_chars
+#         # TODO: properly handle <UNK>
+#
+#     @property
+#     def word_char_ids(self):
+#         return self._word_char_ids
+#
+#     @property
+#     def max_word_length(self):
+#         return self._max_word_length
+#
+#     def _convert_word_to_char_ids(self, word):
+#         code = np.zeros([self.max_word_length], dtype=np.int32)
+#         code[:] = self.pad_char
+#
+#         word_encoded = word.encode('utf-8', 'ignore')[:(self.max_word_length-2)]
+#         code[0] = self.bow_char
+#         for k, chr_id in enumerate(word_encoded, start=1):
+#             code[k] = chr_id
+#         code[k + 1] = self.eow_char
+#
+#         return code
+#
+#     def word_to_char_ids(self, word):
+#         if word in self._word_to_id:
+#             return self._word_char_ids[self._word_to_id[word]]
+#         else:
+#             return self._convert_word_to_char_ids(word)
+#
+#     def encode_chars(self, sentence, reverse=False, split=True):
+#         """
+#         Encode the sentence as a white space delimited string of tokens.
+#         """
+#         if split:
+#             chars_ids = [self.word_to_char_ids(cur_word)
+#                          for cur_word in sentence.split()]
+#         else:
+#             chars_ids = [self.word_to_char_ids(cur_word)
+#                          for cur_word in sentence]
+#         if reverse:
+#             return np.vstack([self.eos_chars] + chars_ids + [self.bos_chars])
+#         else:
+#             return np.vstack([self.bos_chars] + chars_ids + [self.eos_chars])
+
+
 class UnicodeCharsVocabulary(Vocabulary):
     """
     Vocabulary containing character-level and word level information.
@@ -107,39 +219,42 @@ class UnicodeCharsVocabulary(Vocabulary):
     This limits the total number of possible char ids to 256.
     To this we add 5 additional special ids: begin sentence, end sentence,
         begin word, end word and padding.
-
-    WARNING: for prediction, we add +1 to the output ids from this
-    class to create a special padding id (=0).  As a result, we suggest
-    you use the `Batcher`, `TokenBatcher`, and `LMDataset` classes instead
-    of this lower level class.  If you are using this lower level class,
-    then be sure to add the +1 appropriately, otherwise embeddings computed
-    from the pre-trained model will be useless.
     """
     def __init__(self, filename, max_word_length, **kwargs):
         super(UnicodeCharsVocabulary, self).__init__(filename, **kwargs)
         self._max_word_length = max_word_length
 
-        # char ids 0-255 come from utf-8 encoding bytes
-        # assign 256-300 to special chars
-        self.bos_char = 256  # <begin sentence>
-        self.eos_char = 257  # <end sentence>
-        self.bow_char = 258  # <begin word>
-        self.eow_char = 259  # <end word>
-        self.pad_char = 260  # <padding>
+        self.bos_char = 53  # <begin sentence>
+        self.eos_char = 54  # <end sentence>
+        self.bow_char = 55  # <begin word>
+        self.eow_char = 56  # <end word>
+        self.pad_char = 57  # <padding>
+
+        self._JAUM = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ',
+                      'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ',
+                      'ㅌ', 'ㅍ', 'ㅎ', 'ㄳ', 'ㄵ', 'ㄶ', 'ㄺ', 'ㄻ',
+                      'ㄼ', 'ㄽ', 'ㄾ', 'ㄿ', 'ㅀ', 'ㅄ']
+        self._MOUM = ['ㅏ', 'ㅐ', 'ㅑ', 'ㅒ', 'ㅓ', 'ㅔ', 'ㅕ', 'ㅖ',
+                      'ㅗ', 'ㅘ', 'ㅙ', 'ㅚ', 'ㅛ', 'ㅜ', 'ㅝ', 'ㅞ',
+                      'ㅟ', 'ㅠ', 'ㅡ', 'ㅢ', 'ㅣ']
+        self._SPECIAL_TOKENS = ['_', '<S>', '</S>', '<UNK>', '?', 'N']
+
+        self._JAMO = self._JAUM + self._MOUM + self._SPECIAL_TOKENS
+        self.JAMO2IDX = {v: idx for idx, v in enumerate(self._JAMO)}
 
         num_words = len(self._id_to_word)
 
         self._word_char_ids = np.zeros(
-            [num_words, max_word_length], dtype=np.int32)
+            [num_words, max_word_length + 2], dtype=np.int32)
 
-        # the character representation of the begin/end of sentence characters
         def _make_bos_eos(c):
-            r = np.zeros([self.max_word_length], dtype=np.int32)
+            r = np.zeros([self.max_word_length + 2], dtype=np.int32)
             r[:] = self.pad_char
             r[0] = self.bow_char
             r[1] = c
             r[2] = self.eow_char
             return r
+
         self.bos_chars = _make_bos_eos(self.bos_char)
         self.eos_chars = _make_bos_eos(self.eos_char)
 
@@ -148,7 +263,6 @@ class UnicodeCharsVocabulary(Vocabulary):
 
         self._word_char_ids[self.bos] = self.bos_chars
         self._word_char_ids[self.eos] = self.eos_chars
-        # TODO: properly handle <UNK>
 
     @property
     def word_char_ids(self):
@@ -159,14 +273,19 @@ class UnicodeCharsVocabulary(Vocabulary):
         return self._max_word_length
 
     def _convert_word_to_char_ids(self, word):
-        code = np.zeros([self.max_word_length], dtype=np.int32)
+        code = np.zeros([self.max_word_length + 2], dtype=np.int32)
         code[:] = self.pad_char
 
-        word_encoded = word.encode('utf-8', 'ignore')[:(self.max_word_length-2)]
+        word_encoded = word_to_jamo_pipeline.run(word)[:self.max_word_length]
         code[0] = self.bow_char
-        for k, chr_id in enumerate(word_encoded, start=1):
-            code[k] = chr_id
-        code[k + 1] = self.eow_char
+
+        if word_encoded in ['<S>', '</S>', '<UNK>']:
+            for idx, char in enumerate(word_encoded, start=1):
+                code[idx] = self.JAMO2IDX[char]
+            code[idx+1] = self.eow_char
+        else:
+            code[1] = self.JAMO2IDX[word_encoded]
+            code[2] = self.eow_char
 
         return code
 
@@ -177,9 +296,6 @@ class UnicodeCharsVocabulary(Vocabulary):
             return self._convert_word_to_char_ids(word)
 
     def encode_chars(self, sentence, reverse=False, split=True):
-        """
-        Encode the sentence as a white space delimited string of tokens.
-        """
         if split:
             chars_ids = [self.word_to_char_ids(cur_word)
                          for cur_word in sentence.split()]

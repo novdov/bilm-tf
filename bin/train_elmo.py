@@ -26,7 +26,7 @@ def main(args):
     # 연애의 과학 토크나이징된 카톡 데이터 (identified_corpus_20180105) 토큰 개수
     # 토큰 줄이기
     # n_train_tokens = 609518
-    n_train_tokens = 200000000
+    n_train_tokens = 50000000
 
     options = {
         'bidirectional': True,
