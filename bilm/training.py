@@ -60,8 +60,7 @@ class LanguageModel(object):
         self.char_inputs = 'char_cnn' in self.options
 
         # for the loss function
-        self.share_embedding_softmax = options.get(
-            'share_embedding_softmax', False)
+        self.share_embedding_softmax = options.get('share_embedding_softmax', False)
         if self.char_inputs and self.share_embedding_softmax:
             raise ValueError('Sharing softmax and embedding weights requires word input')
 
@@ -77,22 +76,25 @@ class LanguageModel(object):
         projection_dim = self.options['lstm']['projection_dim']
 
         # the input token_ids and word embeddings
-        self.token_ids = tf.placeholder(
-            DTYPE_INT, shape=(batch_size, unroll_steps), name='token_ids')
+        self.token_ids = tf.placeholder(DTYPE_INT,
+                                        shape=(batch_size, unroll_steps),
+                                        name='token_ids')
         # the word embeddings
         with tf.device("/cpu:0"):
-            self.embedding_weights = tf.get_variable(
-                'embedding', [n_tokens_vocab, projection_dim], dtype=DTYPE)
-            self.embedding = tf.nn.embedding_lookup(
-                self.embedding_weights, self.token_ids)
+            self.embedding_weights = tf.get_variable('embedding',
+                                                     [n_tokens_vocab, projection_dim],
+                                                     dtype=DTYPE)
+            self.embedding = tf.nn.embedding_lookup(self.embedding_weights,
+                                                    self.token_ids)
         # if a bidirectional LM then make placeholders for reverse
         # model and embeddings
         if self.bidirectional:
-            self.token_ids_reverse = tf.placeholder(
-                DTYPE_INT, shape=(batch_size, unroll_steps), name='token_ids_reverse')
+            self.token_ids_reverse = tf.placeholder(DTYPE_INT,
+                                                    shape=(batch_size, unroll_steps),
+                                                    name='token_ids_reverse')
             with tf.device("/cpu:0"):
-                self.embedding_reverse = tf.nn.embedding_lookup(
-                    self.embedding_weights, self.token_ids_reverse)
+                self.embedding_reverse = tf.nn.embedding_lookup(self.embedding_weights,
+                                                                self.token_ids_reverse)
 
     def _build_word_char_embeddings(self):
         """
@@ -707,8 +709,10 @@ def train(options, data, n_gpus,
 
         # some histogram summaries.  all models use the same parameters
         # so only need to summarize one
-        histogram_summaries = [tf.summary.histogram(
-            'token_embedding', models[0].embedding)]
+        histogram_summaries = [
+            tf.summary.histogram('token_embedding',
+                                 models[0].embedding)
+        ]
         # tensors of the output from the LSTM layer
         lstm_out = tf.get_collection('lstm_output_embeddings')
         histogram_summaries.append(

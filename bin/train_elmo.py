@@ -30,21 +30,21 @@ def main(args):
 
     options = {
         'bidirectional': True,
-        'char_cnn': {
-            # 'activation': 'relu',
-            'activation': 'tanh',
-            'embedding': {'dim': 16},
-            'filters': [[1, 32],
-                        [2, 32],
-                        [3, 64],
-                        [4, 128],
-                        [5, 256],
-                        [6, 512],
-                        [7, 1024]],
-            'max_characters_per_token': 20,
-            'n_characters': 261,
-            'n_highway': 2,
-        },
+        # 'char_cnn': {
+        #     # 'activation': 'relu',
+        #     'activation': 'tanh',
+        #     'embedding': {'dim': 16},
+        #     'filters': [[1, 32],
+        #                 [2, 32],
+        #                 [3, 64],
+        #                 [4, 128],
+        #                 [5, 256],
+        #                 [6, 512],
+        #                 [7, 1024]],
+        #     'max_characters_per_token': 20,
+        #     'n_characters': 261,
+        #     'n_highway': 2,
+        # },
         'dropout': 0.2,
 
         'lstm': {
@@ -57,7 +57,7 @@ def main(args):
         },
 
         'all_clip_norm_val': 10.0,
-        'n_epochs': 20,
+        'n_epochs': 10,
         'n_train_tokens': n_train_tokens,
         'batch_size': batch_size,
         'n_tokens_vocab': vocab.size,
