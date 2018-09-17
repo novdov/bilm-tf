@@ -77,48 +77,27 @@ class LanguageModel(object):
 
         # the input token_ids and word embeddings
         self.token_ids = tf.placeholder(DTYPE_INT,
-                                        shape=(batch_size, unroll_steps),
+                                        [batch_size, unroll_steps],
                                         name='token_ids')
         # the word embeddings
-        with tf.device("/cpu:0"):
+        with tf.device('/cpu:0'):
             self.embedding_weights = tf.get_variable('embedding',
                                                      [n_tokens_vocab, projection_dim],
                                                      dtype=DTYPE)
+            # shape of (batch_size, unroll_steps, projection_dim)
             self.embedding = tf.nn.embedding_lookup(self.embedding_weights,
                                                     self.token_ids)
         # if a bidirectional LM then make placeholders for reverse
         # model and embeddings
         if self.bidirectional:
             self.token_ids_reverse = tf.placeholder(DTYPE_INT,
-                                                    shape=(batch_size, unroll_steps),
+                                                    [batch_size, unroll_steps],
                                                     name='token_ids_reverse')
-            with tf.device("/cpu:0"):
+            with tf.device('/cpu:0'):
                 self.embedding_reverse = tf.nn.embedding_lookup(self.embedding_weights,
                                                                 self.token_ids_reverse)
 
     def _build_word_char_embeddings(self):
-        """
-        options contains key 'char_cnn': {
-        'n_characters': 262,
-        # includes the start / end characters
-        'max_characters_per_token': 50,
-        'filters': [
-            [1, 32],
-            [2, 32],
-            [3, 64],
-            [4, 128],
-            [5, 256],
-            [6, 512],
-            [7, 512]
-        ],
-        'activation': 'tanh',
-        # for the character embedding
-        'embedding': {'dim': 16}
-        # for highway layers
-        # if omitted, then no highway layers
-        'n_highway': 2,
-        }
-        """
         batch_size = self.options['batch_size']
         unroll_steps = self.options['unroll_steps']
         projection_dim = self.options['lstm']['projection_dim']
@@ -170,20 +149,9 @@ class LanguageModel(object):
                 convolutions = []
                 for i, (width, num) in enumerate(filters):
                     if cnn_options['activation'] == 'relu':
-                        # He initialization for ReLU activation
-                        # with char embeddings init between -1 and 1
-                        # w_init = tf.random_normal_initializer(
-                        #    mean=0.0,
-                        #    stddev=np.sqrt(2.0 / (width * char_embed_dim))
-                        # )
-
                         # Kim et al 2015, +/- 0.05
                         w_init = tf.random_uniform_initializer(
                             minval=-0.05, maxval=0.05)
-                    # elif cnn_options['activation'] == 'tanh':
-                    #     # glorot init
-                    #     w_init = tf.random_normal_initializer(
-                    #         mean=0.0, stddev=np.sqrt(1.0 / (width * char_embed_dim)))
                     else:
                         # glorot init
                         w_init = tf.random_normal_initializer(
@@ -206,6 +174,7 @@ class LanguageModel(object):
 
                     # activation
                     conv = activation(conv)
+                    # (batch_size, 10, 1, num) -> (batch_size, 10, num)
                     conv = tf.squeeze(conv, squeeze_dims=[2])
                     convolutions.append(conv)
 

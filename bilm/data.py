@@ -320,8 +320,7 @@ class Batcher(object):
         max_token_length = the maximum number of characters in each token
         """
         self._lm_vocab = UnicodeCharsVocabulary(
-            lm_vocab_file, max_token_length
-        )
+            lm_vocab_file, max_token_length)
         self._max_token_length = max_token_length
 
     def batch_sentences(self, sentences: List[List[str]]):
@@ -497,7 +496,7 @@ class LMDataset(object):
             self._shards_to_choose = list(self._all_shards)
             random.shuffle(self._shards_to_choose)
         shard_name = self._shards_to_choose.pop()
-        # while not self._check_doc_length(shard_name, 5000):
+        # while not self._check_doc_length(shard_name, 100):
         #     shard_name = self._shards_to_choose.pop()
         return shard_name
 
@@ -518,7 +517,12 @@ class LMDataset(object):
             shard_name = self._choose_random_shard()
             # shard_name = self._all_shards.pop()
 
+        # 18.09.17
+        # because sentences with no data exist,
+        # omit this case and re-select files
         ids = self._load_shard(shard_name)
+        while not ids:
+            ids = self._load_shard(shard_name)
         self._i = 0
         self._nids = len(ids)
         return ids
@@ -530,7 +534,7 @@ class LMDataset(object):
         Args:
             shard_name: file path.
 
-        Returns:1
+        Returns:
             list of (id, char_id) tuples.
         """
         bracket_filter = re.compile('\(.*\)')
@@ -540,14 +544,12 @@ class LMDataset(object):
             # added by sunwoong
             # take only sentences from raw data
             sentences_raw = []
+
             for line in f.readlines():
                 sent = line.split('\t')[3].replace('\n', '')
                 if bracket_filter.fullmatch(sent):
                     continue
                 sentences_raw.append(sent)
-
-            # sentences_raw = [line.split('\t')[3]
-            #                  for line in f.readlines() if line.split('\t')[-1]]
 
         if self._reverse:
             sentences = []
