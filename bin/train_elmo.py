@@ -16,7 +16,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 def main(args):
     # load the vocab
-    vocab = load_vocab(args.vocab_file, 20)
+    vocab = load_vocab(args.vocab_file, 32)
 
     # define the options
     batch_size = 64*2  # batch size for each GPU
@@ -30,21 +30,21 @@ def main(args):
 
     options = {
         'bidirectional': True,
-        # 'char_cnn': {
-        #     # 'activation': 'relu',
-        #     'activation': 'tanh',
-        #     'embedding': {'dim': 16},
-        #     'filters': [[1, 32],
-        #                 [2, 32],
-        #                 [3, 64],
-        #                 [4, 128],
-        #                 [5, 256],
-        #                 [6, 512],
-        #                 [7, 1024]],
-        #     'max_characters_per_token': 20,
-        #     'n_characters': 261,
-        #     'n_highway': 2,
-        # },
+        'char_cnn': {
+            # 'activation': 'relu',
+            'activation': 'tanh',
+            'embedding': {'dim': 16},
+            'filters': [[1, 32],
+                        [2, 32],
+                        [3, 64],
+                        [4, 128],
+                        [5, 256],
+                        [6, 512],
+                        [7, 1024]],
+            'max_characters_per_token': 32,
+            'n_characters': 63,
+            'n_highway': 2,
+        },
         'dropout': 0.2,
 
         'lstm': {

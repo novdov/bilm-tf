@@ -3,6 +3,7 @@ import numpy as np
 import glob
 import random
 import sys
+import re
 
 from typing import List
 
@@ -224,11 +225,11 @@ class UnicodeCharsVocabulary(Vocabulary):
         super(UnicodeCharsVocabulary, self).__init__(filename, **kwargs)
         self._max_word_length = max_word_length
 
-        self.bos_char = 53  # <begin sentence>
-        self.eos_char = 54  # <end sentence>
-        self.bow_char = 55  # <begin word>
-        self.eow_char = 56  # <end word>
-        self.pad_char = 57  # <padding>
+        self.bos_char = 58  # <begin sentence>
+        self.eos_char = 59  # <end sentence>
+        self.bow_char = 60  # <begin word>
+        self.eow_char = 61  # <end word>
+        self.pad_char = 62  # <padding>
 
         self._JAUM = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ',
                       'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ',
@@ -245,10 +246,10 @@ class UnicodeCharsVocabulary(Vocabulary):
         num_words = len(self._id_to_word)
 
         self._word_char_ids = np.zeros(
-            [num_words, max_word_length + 2], dtype=np.int32)
+            [num_words, max_word_length], dtype=np.int32)
 
         def _make_bos_eos(c):
-            r = np.zeros([self.max_word_length + 2], dtype=np.int32)
+            r = np.zeros([self.max_word_length], dtype=np.int32)
             r[:] = self.pad_char
             r[0] = self.bow_char
             r[1] = c
@@ -273,13 +274,13 @@ class UnicodeCharsVocabulary(Vocabulary):
         return self._max_word_length
 
     def _convert_word_to_char_ids(self, word):
-        code = np.zeros([self.max_word_length + 2], dtype=np.int32)
+        code = np.zeros([self.max_word_length], dtype=np.int32)
         code[:] = self.pad_char
 
-        word_encoded = word_to_jamo_pipeline.run(word)[:self.max_word_length]
+        word_encoded = word_to_jamo_pipeline.run(word)[:self.max_word_length-2]
         code[0] = self.bow_char
 
-        if word_encoded in ['<S>', '</S>', '<UNK>']:
+        if word_encoded not in ['<S>', '</S>', '<UNK>']:
             for idx, char in enumerate(word_encoded, start=1):
                 code[idx] = self.JAMO2IDX[char]
             code[idx+1] = self.eow_char
@@ -470,7 +471,6 @@ class LMDataset(object):
                 _all_shards += glob.glob(pattern)
             self._all_shards = _all_shards
         else:
-            # glob -> iglob
             self._all_shards = glob.glob(filepattern)
 
         print('Found {} shards at {}'.format(
@@ -533,13 +533,17 @@ class LMDataset(object):
         Returns:1
             list of (id, char_id) tuples.
         """
+        bracket_filter = re.compile('\(.*\)')
+
         print('Loading data from: {}'.format(shard_name))
         with open(shard_name) as f:
             # added by sunwoong
             # take only sentences from raw data
             sentences_raw = []
             for line in f.readlines():
-                sent = line.split('\t')[3]
+                sent = line.split('\t')[3].replace('\n', '')
+                if bracket_filter.fullmatch(sent):
+                    continue
                 sentences_raw.append(sent)
 
             # sentences_raw = [line.split('\t')[3]

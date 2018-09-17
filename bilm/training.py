@@ -130,9 +130,9 @@ class LanguageModel(object):
         char_embed_dim = cnn_options['embedding']['dim']
         n_chars = cnn_options['n_characters']
 
-        if n_chars != 261:
-            raise InvalidNumberOfCharacters(
-                "Set n_characters=261 for training see the README.md")
+        # if n_chars != 261:
+        #     raise InvalidNumberOfCharacters(
+        #         "Set n_characters=261 for training see the README.md")
 
         if cnn_options['activation'] == 'tanh':
             activation = tf.nn.tanh
@@ -710,8 +710,7 @@ def train(options, data, n_gpus,
         # some histogram summaries.  all models use the same parameters
         # so only need to summarize one
         histogram_summaries = [
-            tf.summary.histogram('token_embedding',
-                                 models[0].embedding)
+            tf.summary.histogram('token_embedding', models[0].embedding)
         ]
         # tensors of the output from the LSTM layer
         lstm_out = tf.get_collection('lstm_output_embeddings')
