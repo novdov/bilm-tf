@@ -1,14 +1,12 @@
 """
 Train and test bidirectional language models.
 """
-
 import json
 import os
 import time
 import re
 
 import tensorflow as tf
-from tensorflow.contrib.tensorboard.plugins import projector
 import numpy as np
 
 # from tensorflow.python.ops.init_ops import glorot_uniform_initializer
@@ -127,10 +125,10 @@ class LanguageModel(object):
         # the character embeddings
         with tf.device('/cpu:0'):
             self.embedding_weights = tf.get_variable(
-                'char_embed', [n_chars, char_embed_dim],
+                'char_embed',
+                [n_chars, char_embed_dim],
                 dtype=DTYPE,
-                initializer=tf.random_uniform_initializer(-1.0, 1.0)
-            )
+                initializer=tf.random_uniform_initializer(-1.0, 1.0))
             # shape (batch_size, unroll_steps, max_chars, embed_dim)
             self.char_embedding = tf.nn.embedding_lookup(self.embedding_weights,
                                                          self.tokens_characters)
@@ -160,24 +158,20 @@ class LanguageModel(object):
                         'W_cnn_%s' % i, [1, width, char_embed_dim, num],
                         initializer=w_init, dtype=DTYPE)
                     b = tf.get_variable(
-                        "b_cnn_%s" % i, [num], dtype=DTYPE,
+                        'b_cnn_%s' % i, [num], dtype=DTYPE,
                         initializer=tf.constant_initializer(0.0))
 
-                    conv = tf.nn.conv2d(
-                        inp, w,
-                        strides=[1, 1, 1, 1],
-                        padding='VALID') + b
+                    conv = tf.nn.conv2d(inp, w,
+                                        strides=[1, 1, 1, 1],
+                                        padding='VALID') + b
                     # now max pool
-                    conv = tf.nn.max_pool(
-                        conv, [1, 1, max_chars - width + 1, 1],
-                        [1, 1, 1, 1], 'VALID')
-
+                    conv = tf.nn.max_pool(conv, [1, 1, max_chars - width + 1, 1],
+                                          [1, 1, 1, 1], 'VALID')
                     # activation
                     conv = activation(conv)
                     # (batch_size, 10, 1, num) -> (batch_size, 10, num)
                     conv = tf.squeeze(conv, squeeze_dims=[2])
                     convolutions.append(conv)
-
             return tf.concat(convolutions, 2)
 
         # for first model, this is False, for others it's True
@@ -188,8 +182,7 @@ class LanguageModel(object):
 
         if self.bidirectional:
             # re-use the CNN weights from forward pass
-            embedding_reverse = make_convolutions(
-                self.char_embedding_reverse, True)
+            embedding_reverse = make_convolutions(self.char_embedding_reverse, True)
 
         # for highway and projection layers:
         #   reshape from (batch_size, n_tokens, dim) to
@@ -200,20 +193,20 @@ class LanguageModel(object):
         if use_highway or use_proj:
             embedding = tf.reshape(embedding, [-1, n_filters])
             if self.bidirectional:
-                embedding_reverse = tf.reshape(
-                    embedding_reverse, [-1, n_filters])
+                embedding_reverse = tf.reshape(embedding_reverse,
+                                               [-1, n_filters])
 
         # set up weights for projection
         if use_proj:
             assert n_filters > projection_dim
             with tf.variable_scope('CNN_proj') as scope:
                 W_proj_cnn = tf.get_variable(
-                    "W_proj", [n_filters, projection_dim],
+                    'W_proj', [n_filters, projection_dim],
                     initializer=tf.random_normal_initializer(
                         mean=0.0, stddev=np.sqrt(1.0 / n_filters)),
                     dtype=DTYPE)
                 b_proj_cnn = tf.get_variable(
-                    "b_proj", [projection_dim],
+                    'b_proj', [projection_dim],
                     initializer=tf.constant_initializer(0.0),
                     dtype=DTYPE)
 
@@ -358,13 +351,13 @@ class LanguageModel(object):
                 # with existing models...
                 if self.bidirectional:
                     with tf.variable_scope('RNN_%s' % lstm_num):
-                        _lstm_output_unpacked, final_state = tf.nn.static_rnn(lstm_cell,
-                                                                              tf.unstack(lstm_input, axis=1),
-                                                                              initial_state=self.init_lstm_state[-1])
+                        _lstm_output_unpacked, final_state = tf.nn.static_rnn(
+                            lstm_cell, tf.unstack(lstm_input, axis=1),
+                            initial_state=self.init_lstm_state[-1])
                 else:
-                    _lstm_output_unpacked, final_state = tf.nn.static_rnn(lstm_cell,
-                                                                          tf.unstack(lstm_input, axis=1),
-                                                                          initial_state=self.init_lstm_state[-1])
+                    _lstm_output_unpacked, final_state = tf.nn.static_rnn(
+                        lstm_cell, tf.unstack(lstm_input, axis=1),
+                        initial_state=self.init_lstm_state[-1])
                 self.final_lstm_state.append(final_state)
 
             # (batch_size * unroll_steps, 512)
@@ -418,13 +411,10 @@ class LanguageModel(object):
             # Glorot init (std=(1.0 / sqrt(fan_in))
             softmax_init = tf.random_normal_initializer(0.0, 1.0 / np.sqrt(softmax_dim))
             if not self.share_embedding_softmax:
-                self.softmax_W = tf.get_variable(
-                    'W', [n_tokens_vocab, softmax_dim],
-                    dtype=DTYPE, initializer=softmax_init)
-            self.softmax_b = tf.get_variable(
-                'b', [n_tokens_vocab],
-                dtype=DTYPE,
-                initializer=tf.constant_initializer(0.0))
+                self.softmax_W = tf.get_variable('W', [n_tokens_vocab, softmax_dim],
+                                                 dtype=DTYPE, initializer=softmax_init)
+            self.softmax_b = tf.get_variable('b', [n_tokens_vocab], dtype=DTYPE,
+                                             initializer=tf.constant_initializer(0.0))
 
         # now calculate losses
         # loss for each direction of the LSTM
@@ -443,17 +433,15 @@ class LanguageModel(object):
 
             with tf.control_dependencies([lstm_output_flat]):
                 if self.is_training and self.sample_softmax:
-                    losses = tf.nn.sampled_softmax_loss(
-                        self.softmax_W, self.softmax_b,
-                        next_token_id_flat, lstm_output_flat,
-                        self.options['n_negative_samples_batch'],
-                        self.options['n_tokens_vocab'],
-                        num_true=1)
-
+                    losses = tf.nn.sampled_softmax_loss(self.softmax_W, self.softmax_b,
+                                                        next_token_id_flat, lstm_output_flat,
+                                                        self.options['n_negative_samples_batch'],
+                                                        self.options['n_tokens_vocab'],
+                                                        num_true=1)
                 else:
                     # get the full softmax loss
-                    output_scores = tf.matmul(
-                        lstm_output_flat, tf.transpose(self.softmax_W)) + self.softmax_b
+                    output_scores = tf.matmul(lstm_output_flat,
+                                              tf.transpose(self.softmax_W)) + self.softmax_b
                     # NOTE: tf.nn.sparse_softmax_cross_entropy_with_logits
                     #   expects un-normalized output since it performs the
                     #   softmax internally
@@ -465,8 +453,7 @@ class LanguageModel(object):
 
         # now make the total loss -- it's the mean of the individual losses
         if self.bidirectional:
-            self.total_loss = 0.5 * (self.individual_losses[0] +
-                                     self.individual_losses[1])
+            self.total_loss = 0.5 * (self.individual_losses[0] + self.individual_losses[1])
         else:
             self.total_loss = self.individual_losses[0]
 
@@ -489,10 +476,10 @@ def average_gradients(tower_grads, batch_size, options):
             continue
 
         if isinstance(g0, tf.IndexedSlices):
-            # If the gradient is type IndexedSlices then this is a sparse
-            #   gradient with attributes indices and values.
-            # To average, need to concat them individually then create
-            #   a new IndexedSlices object.
+            # If the gradient is type IndexedSlices then
+            #  this is a sparse gradient with attributes indices and values.
+            # To average, need to concat them individually
+            #  then create a new IndexedSlices object.
             indices = []
             values = []
             for g, v in grad_and_vars:
@@ -503,7 +490,6 @@ def average_gradients(tower_grads, batch_size, options):
             # deduplicate across indices
             av, ai = _deduplicate_indexed_slices(avg_values, all_indices)
             grad = tf.IndexedSlices(av, ai, dense_shape=g0.dense_shape)
-
         else:
             # a normal tensor can just do a simple average
             grads = []
@@ -518,8 +504,7 @@ def average_gradients(tower_grads, batch_size, options):
             grad = tf.reduce_mean(grad, 0)
 
         # the Variables are redundant because they are shared
-        # across towers. So.. just return the first tower's pointer to
-        # the Variable.
+        # across towers. So... just return the first tower's pointer to the Variable.
         v = grad_and_vars[0][1]
         grad_and_var = (grad, v)
 
@@ -566,7 +551,7 @@ def summary_gradient_updates(grads, opt, lr):
         values_norm = tf.sqrt(tf.reduce_sum(v * v)) + 1.0e-7
         updates_norm = tf.sqrt(tf.reduce_sum(updates * updates))
         ret.append(tf.summary.scalar(
-            'UPDATE/' + vname.replace(":", "_"), updates_norm / values_norm))
+            'UPDATE/' + vname.replace(':', '_'), updates_norm / values_norm))
 
     return ret
 
@@ -729,15 +714,9 @@ def train(options, data, n_gpus,
         # yield batches of size (batch_size * n_gpus) that are sliced
         # and fed for each required placeholer.
 
-        ###################################################################
-        # stateful characteristic occur hear (final -> initial state)     #
-        ###################################################################
         # We also need to be careful with the LSTM states.
         # We will collect the final LSTM states after each batch,
         # then feed them back in as the initial state for the next batch
-        ###################################################################
-        # stateful characteristic occur hear (final -> initial state)     #
-        ###################################################################
 
         batch_size = options['batch_size']
         unroll_steps = options['unroll_steps']
@@ -815,17 +794,23 @@ def train(options, data, n_gpus,
                 # last entries are the final states -- set them to
                 # init_state_values
                 # for next batch
-                init_state_values = ret[3:]
+
+                # 18.09.18 remove feeding final tensor to init_state_value
+                # init_state_values = ret[3:]
 
             else:
                 # also run the histogram summaries
                 ret = sess.run(
                     [train_op, summary_op, train_perplexity, hist_summary_op] + final_state_tensors,
                     feed_dict=feed_dict)
-                init_state_values = ret[4:]
 
+                # 18.09.18 remove feeding final tensor to init_state_value
+                # init_state_values = ret[4:]
+
+            # final_state_tensors
             if batch_no % 500 == 0:
                 summary_writer.add_summary(ret[3], batch_no)
+
             if batch_no % 100 == 0:
                 # write the summaries to tensorboard and display perplexity
                 summary_writer.add_summary(ret[1], batch_no)
@@ -835,7 +820,6 @@ def train(options, data, n_gpus,
                 # if (batch_no % 100 == 0) or (batch_no == n_batches_total):
                 # if batch_no % 100 == 0 :
                 # save the model
-                # checkpoint_path = os.path.join(tf_save_dir, 'model_batch{}.ckpt'.format(batch_no))
                 checkpoint_path = os.path.join(tf_save_dir, 'model.ckpt_batch')
                 saver.save(sess, checkpoint_path, global_step=global_step)
 
@@ -970,8 +954,8 @@ def test(options, ckpt_file, data, batch_size=256):
                 init_state_tensors, init_state_values)}
 
             feed_dict.update(
-                _get_feed_dict_from_X(X, 0, X['token_ids'].shape[0], model,
-                                      char_inputs, bidirectional))
+                _get_feed_dict_from_X(X, 0, X['token_ids'].shape[0],
+                                      model, char_inputs, bidirectional))
 
             ret = sess.run(
                 [model.total_loss, final_state_tensors],
