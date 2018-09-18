@@ -313,22 +313,20 @@ class LanguageModel(object):
 
         use_skip_connections = self.options['lstm'].get('use_skip_connections')
         if use_skip_connections:
-            print('USING SKIP CONNECTIONS')
+            print("USING SKIP CONNECTIONS")
 
         lstm_outputs = []
         for lstm_num, lstm_input in enumerate(lstm_inputs):
             lstm_cells = []
             for i in range(n_lstm_layers):
                 if projection_dim < lstm_dim:
-                    # projecting down output
-                    lstm_cell = tf.nn.rnn_cell.LSTMCell(lstm_dim,
-                                                        num_proj=projection_dim,
-                                                        cell_clip=cell_clip,
-                                                        proj_clip=proj_clip)
+                    # are projecting down output
+                    lstm_cell = tf.nn.rnn_cell.LSTMCell(
+                        lstm_dim, num_proj=projection_dim,
+                        cell_clip=cell_clip, proj_clip=proj_clip)
                 else:
-                    lstm_cell = tf.nn.rnn_cell.LSTMCell(lstm_dim,
-                                                        cell_clip=cell_clip,
-                                                        proj_clip=proj_clip)
+                    lstm_cell = tf.nn.rnn_cell.LSTMCell(
+                        lstm_dim, cell_clip=cell_clip, proj_clip=proj_clip)
 
                 if use_skip_connections:
                     # ResidualWrapper adds inputs to outputs
@@ -342,8 +340,8 @@ class LanguageModel(object):
 
                 # add dropout
                 if self.is_training:
-                    lstm_cell = tf.nn.rnn_cell.DropoutWrapper(lstm_cell,
-                                                              input_keep_prob=keep_prob)
+                    lstm_cell = tf.nn.rnn_cell.DropoutWrapper(
+                        lstm_cell, input_keep_prob=keep_prob)
 
                 lstm_cells.append(lstm_cell)
 
@@ -353,23 +351,26 @@ class LanguageModel(object):
                 lstm_cell = lstm_cells[0]
 
             with tf.control_dependencies([lstm_input]):
-                self.init_lstm_state.append(lstm_cell.zero_state(batch_size, DTYPE))
+                self.init_lstm_state.append(
+                    lstm_cell.zero_state(batch_size, DTYPE))
                 # NOTE: this variable scope is for backward compatibility
                 # with existing models...
                 if self.bidirectional:
                     with tf.variable_scope('RNN_%s' % lstm_num):
-                        _lstm_output_unpacked, final_state = tf.nn.static_rnn(lstm_cell,
-                                                                              tf.unstack(lstm_input, axis=1),
-                                                                              initial_state=self.init_lstm_state[-1])
+                        _lstm_output_unpacked, final_state = tf.nn.static_rnn(
+                            lstm_cell,
+                            tf.unstack(lstm_input, axis=1),
+                            initial_state=self.init_lstm_state[-1])
                 else:
-                    _lstm_output_unpacked, final_state = tf.nn.static_rnn(lstm_cell,
-                                                                          tf.unstack(lstm_input, axis=1),
-                                                                          initial_state=self.init_lstm_state[-1])
+                    _lstm_output_unpacked, final_state = tf.nn.static_rnn(
+                        lstm_cell,
+                        tf.unstack(lstm_input, axis=1),
+                        initial_state=self.init_lstm_state[-1])
                 self.final_lstm_state.append(final_state)
 
             # (batch_size * unroll_steps, 512)
-            lstm_output_flat = tf.reshape(tf.stack(_lstm_output_unpacked, axis=1),
-                                          [-1, projection_dim])
+            lstm_output_flat = tf.reshape(
+                tf.stack(_lstm_output_unpacked, axis=1), [-1, projection_dim])
             if self.is_training:
                 # add dropout to output
                 lstm_output_flat = tf.nn.dropout(lstm_output_flat,

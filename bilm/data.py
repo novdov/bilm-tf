@@ -216,20 +216,19 @@ class UnicodeCharsVocabulary(Vocabulary):
     Has a word vocabulary that is used to lookup word ids and
     a character id that is used to map words to arrays of character ids.
 
-    The character ids are defined by ord(c) for c in word.encode('utf-8')
-    This limits the total number of possible char ids to 256.
-    To this we add 5 additional special ids: begin sentence, end sentence,
-        begin word, end word and padding.
+    For korean characters:
+        2018.09.17
+            자음/모음/기타 토큰을 합친 57 + 스페셜 토큰 5 = 62 개의 자모 id 사용
     """
     def __init__(self, filename, max_word_length, **kwargs):
         super(UnicodeCharsVocabulary, self).__init__(filename, **kwargs)
         self._max_word_length = max_word_length
 
-        self.bos_char = 58  # <begin sentence>
-        self.eos_char = 59  # <end sentence>
-        self.bow_char = 60  # <begin word>
-        self.eow_char = 61  # <end word>
-        self.pad_char = 62  # <padding>
+        self.bos_char = 57  # <begin sentence>
+        self.eos_char = 58  # <end sentence>
+        self.bow_char = 69  # <begin word>
+        self.eow_char = 60  # <end word>
+        self.pad_char = 61  # <padding>
 
         self._JAUM = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ',
                       'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ',
@@ -274,6 +273,13 @@ class UnicodeCharsVocabulary(Vocabulary):
         return self._max_word_length
 
     def _convert_word_to_char_ids(self, word):
+        """
+        Convert word to array with character ids
+
+        :param word: word to be encoded to character ids
+        :return: numpy array of size of max_word_length corresponding to each
+                    character in input word
+        """
         code = np.zeros([self.max_word_length], dtype=np.int32)
         code[:] = self.pad_char
 
@@ -297,6 +303,15 @@ class UnicodeCharsVocabulary(Vocabulary):
             return self._convert_word_to_char_ids(word)
 
     def encode_chars(self, sentence, reverse=False, split=True):
+        """
+        Encode chars and return array of shape (number of words+2, max_word_length+2)
+        +2 indicates bos_chars and eos_chars
+
+        :param sentence: sentence to be encoded to character ids
+        :param reverse:
+        :param split:
+        :return:
+        """
         if split:
             chars_ids = [self.word_to_char_ids(cur_word)
                          for cur_word in sentence.split()]
@@ -522,6 +537,7 @@ class LMDataset(object):
         # omit this case and re-select files
         ids = self._load_shard(shard_name)
         while not ids:
+            shard_name = self._choose_random_shard()
             ids = self._load_shard(shard_name)
         self._i = 0
         self._nids = len(ids)
