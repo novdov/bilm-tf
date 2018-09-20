@@ -1,37 +1,37 @@
 import argparse
-import numpy as np
 import os
-import sys
 
-sys.path.insert(0, os.path.abspath('.'))
-sys.path.insert(0, os.path.abspath('../'))
-sys.path.append(os.pardir)
+# import sys
+# sys.path.insert(0, os.path.abspath('.'))
+# sys.path.insert(0, os.path.abspath('../'))
+# sys.path.append(os.pardir)
 
-from bilm.training import train, load_options_latest_checkpoint, load_vocab
+from bilm.training import train, load_vocab
 from bilm.data import BidirectionalLMDataset
-from train_config import config
-
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+from .train_config import config
 
 
 def main(args):
     # load the vocab
+    # vocab 의 최대 길이 토큰 = 10음절 --> 자모 변환 시 30음절
+    # bos char + 30 + eos char = 32
     vocab = load_vocab(args.vocab_file, 32)
 
     # define the options
-    batch_size = 64*2  # batch size for each GPU
+    # batch size for each GPU
+    batch_size = 64*2
     n_gpus = 1
 
-    # number of tokens in training data (this for 1B Word Benchmark)
-    # 연애의 과학 토크나이징된 카톡 데이터 (identified_corpus_20180105) 토큰 개수
-    # 토큰 줄이기
+    # 연애의 과학 토크나이징된 카톡 데이터 (identified_corpus_20180105) unique 토큰 개수
+    # (-> unique token 개수가 아닌 전체 토큰 수를 넣어야 함)
     # n_train_tokens = 609518
+    # n_train_tokens = 626932956  # 8000pair_tokenized_corpus.txt에 등하는 토큰 수 (6.2억개)
+    # 임시로 사용하고 있는 토큰 수
     n_train_tokens = 80000000
 
     options = {
         'bidirectional': True,
         'char_cnn': {
-            # 'activation': 'relu',
             'activation': 'tanh',
             'embedding': {'dim': 16},
             'filters': [[1, 32],
@@ -66,10 +66,11 @@ def main(args):
     }
 
     prefix = args.train_prefix
-    data = BidirectionalLMDataset(prefix,
-                                  vocab,
+    data = BidirectionalLMDataset(filepattern=prefix,
+                                  vocab=vocab,
                                   test=False,
-                                  shuffle_on_load=True)
+                                  shuffle_on_load=True,
+                                  with_tab=False)
     tf_save_dir = args.save_dir
     tf_log_dir = args.save_dir
     train(options, data, n_gpus, tf_save_dir, tf_log_dir)
@@ -77,12 +78,14 @@ def main(args):
 
 if __name__ == '__main__':
     from datetime import datetime
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
-    ROOT_PATH = config['ROOT_PATH']
+    BASE_DIR = config['BASE_DIR']
     sol_paths_201801015 = config['sol_paths_201801015']
     textat_paths_201801015 = config['textat_paths_201801015']
-    sol_data_pattern = os.path.join(ROOT_PATH, sol_paths_201801015)
-    textat_data_pattern = os.path.join(ROOT_PATH, textat_paths_201801015)
+    sol_data_pattern = os.path.join(BASE_DIR, sol_paths_201801015)
+    textat_data_pattern = os.path.join(BASE_DIR, textat_paths_201801015)
+    pingpong8000 = config['pingpong8000']
     filepattern = [sol_data_pattern, textat_data_pattern]
 
     now = datetime.now()
@@ -93,8 +96,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--save_dir', help='Location of checkpoint files', default=save_dir)
     parser.add_argument('--vocab_file', help='Vocabulary file', default=vocab_file)
-    # parser.add_argument('--train_prefix', help='Prefix for train files', default=train_prefix)
-    parser.add_argument('--train_prefix', help='Prefix for train files', default=filepattern)
+    parser.add_argument('--train_prefix', help='Prefix for train files', default=pingpong8000)  # pingpong 8000 pairs
+    # parser.add_argument('--train_prefix', help='Prefix for train files', default=filepattern) # sol/textat
     args = parser.parse_args()
 
     main(args)

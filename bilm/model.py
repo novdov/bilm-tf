@@ -16,7 +16,7 @@ class BidirectionalLanguageModel(object):
                  weight_file: str,
                  use_character_inputs=True,
                  embedding_weight_file=None,
-                 max_batch_size=64,):
+                 max_batch_size=64):
         """
         Creates the language model computational graph and loads weights
 

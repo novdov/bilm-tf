@@ -1,9 +1,9 @@
 metadata.tsv
+bin/train_config.py
 pos_neg_labeling_7scaled.tsv
 .ipynb_checkpoints/*
 .ipynb_checkpoints/
 *.ipynb
-train_config.py
 
 bilm.egg-info/
 dist/
@@ -11,5 +11,3 @@ build/
 
 *.pyc
 *.swp
-
-

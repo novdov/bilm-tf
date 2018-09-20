@@ -7,7 +7,7 @@ import re
 
 from typing import List
 
-sys.path.append('/home/sunwoong/ml/')
+sys.path.append('/home/sunwoong/git-clone/ml/')
 
 from modules.nlp_pipeline.processor import WordToJamoProcessor
 from modules.nlp_pipeline.nlp_pipeline import NLPPipeline
@@ -226,7 +226,7 @@ class UnicodeCharsVocabulary(Vocabulary):
 
         self.bos_char = 57  # <begin sentence>
         self.eos_char = 58  # <end sentence>
-        self.bow_char = 69  # <begin word>
+        self.bow_char = 59  # <begin word>
         self.eow_char = 60  # <end word>
         self.pad_char = 61  # <padding>
 
@@ -464,7 +464,8 @@ class LMDataset(object):
                  vocab,
                  reverse=False,
                  test=False,
-                 shuffle_on_load=False):
+                 shuffle_on_load=False,
+                 with_tab=False):
         """
         Args:
             filepattern: a glob string that specifies the list of files.
@@ -474,6 +475,7 @@ class LMDataset(object):
                 Otherwise, iterate forever.
             shuffle_on_load: if True, then shuffle the sentences after loading.
         """
+        self.with_tab = with_tab
         self._vocab = vocab
         #################################
         # added by sunwoong             #
@@ -561,11 +563,18 @@ class LMDataset(object):
             # take only sentences from raw data
             sentences_raw = []
 
-            for line in f.readlines():
-                sent = line.split('\t')[3].replace('\n', '')
-                if bracket_filter.fullmatch(sent):
-                    continue
-                sentences_raw.append(sent)
+            if self.with_tab:
+                for line in f.readlines():
+                    sent = line.split('\t')[3].replace('\n', '')
+                    if bracket_filter.fullmatch(sent):
+                        continue
+                    sentences_raw.append(sent)
+            else:
+                for line in f.readlines():
+                    sent = line.replace('\n', '')
+                    if bracket_filter.fullmatch(sent):
+                        continue
+                    sentences_raw.append(sent)
 
         if self._reverse:
             sentences = []
@@ -624,18 +633,23 @@ class BidirectionalLMDataset(object):
                  filepattern,
                  vocab,
                  test=False,
-                 shuffle_on_load=False):
+                 shuffle_on_load=False,
+                 with_tab=False):
         """
         bidirectional version of LMDataset
         """
-        self._data_forward = LMDataset(
-            filepattern, vocab,
-            reverse=False, test=test,
-            shuffle_on_load=shuffle_on_load)
-        self._data_reverse = LMDataset(
-            filepattern, vocab,
-            reverse=True, test=test,
-            shuffle_on_load=shuffle_on_load)
+        self._data_forward = LMDataset(filepattern,
+                                       vocab,
+                                       reverse=False,
+                                       test=test,
+                                       shuffle_on_load=shuffle_on_load,
+                                       with_tab=with_tab)
+        self._data_reverse = LMDataset(filepattern,
+                                       vocab,
+                                       reverse=True,
+                                       test=test,
+                                       shuffle_on_load=shuffle_on_load,
+                                       with_tab=with_tab)
 
     def iter_batches(self, batch_size, num_steps):
         max_word_length = self._data_forward.max_word_length

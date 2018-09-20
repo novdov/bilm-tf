@@ -724,8 +724,8 @@ def train(options, data, n_gpus,
         n_tokens_per_batch = batch_size * unroll_steps * n_gpus
         n_batches_per_epoch = int(n_train_tokens / n_tokens_per_batch)
         n_batches_total = options['n_epochs'] * n_batches_per_epoch
-        print('Training for %s epochs and %s batches'.format(
-            options['n_epochs'], n_batches_total))
+        print('Training for %s epochs and %s batches' %
+              (options['n_epochs'], n_batches_total))
 
         # get the initial lstm states
         init_state_tensors = []

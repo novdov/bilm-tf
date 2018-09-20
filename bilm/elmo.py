@@ -1,5 +1,5 @@
-
 import tensorflow as tf
+
 
 def weight_layers(name, bilm_ops, l2_coef=None,
                   use_top_only=False, do_layer_norm=False):
