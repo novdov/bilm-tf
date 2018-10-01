@@ -1,14 +1,14 @@
 import argparse
 import os
 
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
-# sys.path.insert(0, os.path.abspath('../'))
-# sys.path.append(os.pardir)
+import sys
+sys.path.insert(0, os.path.abspath('.'))
+sys.path.insert(0, os.path.abspath('../'))
+sys.path.append(os.pardir)
 
 from bilm.training import train, load_vocab
 from bilm.data import BidirectionalLMDataset
-from .train_config import config
+from train_config import config
 
 
 def main(args):
@@ -27,7 +27,7 @@ def main(args):
     # n_train_tokens = 609518
     # n_train_tokens = 626932956  # 8000pair_tokenized_corpus.txt에 등하는 토큰 수 (6.2억개)
     # 임시로 사용하고 있는 토큰 수
-    n_train_tokens = 80000000
+    n_train_tokens = 200000000
 
     options = {
         'bidirectional': True,
@@ -73,7 +73,12 @@ def main(args):
                                   with_tab=False)
     tf_save_dir = args.save_dir
     tf_log_dir = args.save_dir
-    train(options, data, n_gpus, tf_save_dir, tf_log_dir)
+    train(options,
+          data,
+          n_gpus,
+          tf_save_dir,
+          tf_log_dir,
+          restart_ckpt_file='/media/scatter/scatterdisk/elmo_ckpt/elmo_ckpt_0919_2142/model.ckpt_batch-625000')
 
 
 if __name__ == '__main__':
@@ -97,7 +102,7 @@ if __name__ == '__main__':
     parser.add_argument('--save_dir', help='Location of checkpoint files', default=save_dir)
     parser.add_argument('--vocab_file', help='Vocabulary file', default=vocab_file)
     parser.add_argument('--train_prefix', help='Prefix for train files', default=pingpong8000)  # pingpong 8000 pairs
-    # parser.add_argument('--train_prefix', help='Prefix for train files', default=filepattern) # sol/textat
+    # parser.add_argument('--train_prefix', help='Prefix for train files', default=filepattern)   # sol/textat
     args = parser.parse_args()
 
     main(args)

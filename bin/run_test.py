@@ -20,6 +20,8 @@ def main(args):
     # load the vocab
     if 'char_cnn' in options:
         max_word_length = options['char_cnn']['max_characters_per_token']
+        if not options['char_cnn']['n_characters']:
+            options['char_cnn']['n_characters'] = 62
     else:
         max_word_length = None
     vocab = load_vocab(args.vocab_file, max_word_length)
@@ -32,9 +34,9 @@ def main(args):
     }
 
     if options.get('bidirectional'):
-        data = BidirectionalLMDataset(test_prefix, vocab, **kwargs)
+        data = BidirectionalLMDataset(test_prefix, vocab, with_tab=True, **kwargs)
     else:
-        data = LMDataset(test_prefix, vocab, **kwargs)
+        data = LMDataset(test_prefix, vocab, with_tab=True, **kwargs)
 
     test(options, ckpt_file, data, batch_size=args.batch_size)
 
@@ -44,7 +46,7 @@ if __name__ == '__main__':
     # test_candidates = random.sample(os.listdir(test_dir), 1)
     # test_prefix = [os.path.join(test_dir, cand, '*') for cand in test_candidates]
     test_sub_dir = os.path.join(test_dir, '73')
-    fnames = os.listdir(test_sub_dir)[:5]
+    fnames = os.listdir(test_sub_dir)[:10]
     test_prefix = [os.path.join(test_sub_dir, fname) for fname in fnames]
 
     parser = argparse.ArgumentParser(description='Compute test perplexity')

@@ -4,7 +4,13 @@ import h5py
 import json
 import re
 
-from .data import UnicodeCharsVocabulary, Batcher, InvalidNumberOfCharacters
+from .data import (
+    Vocabulary,
+    UnicodeCharsVocabulary,
+    Batcher,
+    TokenBatcher,
+    InvalidNumberOfCharacters
+)
 
 DTYPE = 'float32'
 DTYPE_INT = 'int64'
@@ -319,9 +325,9 @@ class BidirectionalLanguageModelGraph(object):
         max_chars = cnn_options['max_characters_per_token']
         char_embed_dim = cnn_options['embedding']['dim']
         n_chars = cnn_options['n_characters']
-        if n_chars != 262:
-            raise InvalidNumberOfCharacters(
-                "Set n_characters=262 after training see the README.md")
+        # if n_chars != 262:
+        #     raise InvalidNumberOfCharacters(
+        #         "Set n_characters=262 after training see the README.md")
         if cnn_options['activation'] == 'tanh':
             activation = tf.nn.tanh
         elif cnn_options['activation'] == 'relu':
@@ -602,14 +608,25 @@ def dump_token_embeddings(vocab_file, options_file, weight_file, outfile):
     """
     with open(options_file, 'r') as fin:
         options = json.load(fin)
-    max_word_length = options['char_cnn']['max_characters_per_token']
 
-    vocab = UnicodeCharsVocabulary(vocab_file, max_word_length)
-    batcher = Batcher(vocab_file, max_word_length)
+    char_input = 'char_cnn' in options
 
-    ids_placeholder = tf.placeholder('int32',
-                                     shape=(None, None, max_word_length)
-    )
+    if char_input:
+        max_word_length = options['char_cnn']['max_characters_per_token']
+
+        vocab = UnicodeCharsVocabulary(vocab_file, max_word_length)
+        batcher = Batcher(vocab_file, max_word_length)
+
+        ids_placeholder = tf.placeholder('int32',
+                                         shape=(None, None, max_word_length))
+
+    else:
+        vocab = Vocabulary(vocab_file)
+        batcher = TokenBatcher(vocab_file)
+
+        ids_placeholder = tf.placeholder(tf.int32,
+                                         shape=(None, None))
+
     model = BidirectionalLanguageModel(options_file, weight_file)
     embedding_op = model(ids_placeholder)['token_embeddings']
 
@@ -623,16 +640,61 @@ def dump_token_embeddings(vocab_file, options_file, weight_file, outfile):
         sess.run(tf.global_variables_initializer())
         for k in range(n_tokens):
             token = vocab.id_to_word(k)
-            char_ids = batcher.batch_sentences([[token]])[0, 1, :].reshape(
-                1, 1, -1)
-            embeddings[k, :] = sess.run(
-                embedding_op, feed_dict={ids_placeholder: char_ids}
-            )
+            if char_input:
+                char_ids = batcher.batch_sentences([[token]])[0, 1, :].reshape(1, 1, -1)
+                embeddings[k, :] = sess.run(
+                    embedding_op, feed_dict={ids_placeholder: char_ids}
+                )
+            else:
+                token_ids = batcher.batch_sentences([[token]])[0, :].reshape(1, -1)
+                embeddings[k, :] = sess.run(
+                    embedding_op, feed_dict={ids_placeholder: token_ids}
+                )
 
     with h5py.File(outfile, 'w') as fout:
         ds = fout.create_dataset(
             'embedding', embeddings.shape, dtype='float32', data=embeddings
         )
+
+
+# def dump_token_embeddings(vocab_file, options_file, weight_file, outfile):
+#     """
+#     Given an input vocabulary file, dump all the token embeddings to the
+#     outfile.  The result can be used as the embedding_weight_file when
+#     constructing a BidirectionalLanguageModel.
+#     """
+#     with open(options_file, 'r') as fin:
+#         options = json.load(fin)
+#     max_word_length = options['char_cnn']['max_characters_per_token']
+#
+#     vocab = UnicodeCharsVocabulary(vocab_file, max_word_length)
+#     batcher = Batcher(vocab_file, max_word_length)
+#
+#     ids_placeholder = tf.placeholder('int32',
+#                                      shape=(None, None, max_word_length))
+#     model = BidirectionalLanguageModel(options_file, weight_file)
+#     embedding_op = model(ids_placeholder)['token_embeddings']
+#
+#     n_tokens = vocab.size
+#     embed_dim = int(embedding_op.shape[2])
+#
+#     embeddings = np.zeros((n_tokens, embed_dim), dtype=DTYPE)
+#
+#     config = tf.ConfigProto(allow_soft_placement=True)
+#     with tf.Session(config=config) as sess:
+#         sess.run(tf.global_variables_initializer())
+#         for k in range(n_tokens):
+#             token = vocab.id_to_word(k)
+#             char_ids = batcher.batch_sentences([[token]])[0, 1, :].reshape(
+#                 1, 1, -1)
+#             embeddings[k, :] = sess.run(
+#                 embedding_op, feed_dict={ids_placeholder: char_ids}
+#             )
+#
+#     with h5py.File(outfile, 'w') as fout:
+#         ds = fout.create_dataset(
+#             'embedding', embeddings.shape, dtype='float32', data=embeddings
+#         )
 
 
 def dump_bilm_embeddings(vocab_file, dataset_file, options_file,

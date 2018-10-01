@@ -287,9 +287,12 @@ class UnicodeCharsVocabulary(Vocabulary):
         code[0] = self.bow_char
 
         if word_encoded not in ['<S>', '</S>', '<UNK>']:
-            for idx, char in enumerate(word_encoded, start=1):
-                code[idx] = self.JAMO2IDX[char]
-            code[idx+1] = self.eow_char
+            try:
+                for idx, char in enumerate(word_encoded, start=1):
+                    code[idx] = self.JAMO2IDX[char]
+                code[idx+1] = self.eow_char
+            except KeyError:
+                pass
         else:
             code[1] = self.JAMO2IDX[word_encoded]
             code[2] = self.eow_char
